@@ -319,6 +319,7 @@ const ENEMY_TYPES = {
   kamika: { hp: 4,  score: 30, r: 12, color: '#ff3c9e', fire: 0,     body: 'kamika' },
   heavy:  { hp: 9,  score: 60, r: 22, color: '#b06aff', fire: 1.6,   body: 'heavy' },
   elite:  { hp: 24, score: 150, r: 26, color: '#ffcf3c', fire: 1.35, body: 'elite' },  // v3.0 精英机
+  meteor: { hp: 1,  score: 5,  r: 12, color: '#a07a4a', fire: 0,     body: 'meteor' }, // v6.0 陨石
 };
 
 class Enemy {
@@ -354,6 +355,10 @@ class Enemy {
       this.vx = rand(45, 75) * (Math.random() < 0.5 ? -1 : 1);
       this.stopY = rand(110, 200);                  // 悬停高度
       this.eliteAlt = false;                        // 弹幕交替
+    } else if (type === 'meteor') {
+      this.vy = rand(260, 380);
+      this.vx = rand(-40, 40);
+      this.rot = rand(0, 6);
     } else { // heavy
       this.vy = rand(46, 64);
       this.vx = 0;
@@ -380,6 +385,10 @@ class Enemy {
       this.x += (dx / d) * sp * dt;
       this.y += (dy / d) * sp * dt;
       if (Math.random() < dt * 8) game.spawnParticles(this.x, this.y, 1, '#ff3c9e', 1.2, 0.3);
+    } else if (this.type === 'meteor') {
+      this.y += this.vy * dt;
+      this.x += this.vx * dt;
+      this.rot += dt * 3;
     } else if (this.type === 'elite') {
       // 进场到悬停高度后水平巡航
       if (this.y < this.stopY) this.y += this.vy * dt;
@@ -486,6 +495,17 @@ class Enemy {
       g.closePath(); g.fill();
       g.fillStyle = '#fff';
       g.beginPath(); g.arc(0, 2, 3 + Math.sin(this.t * 30) * 1.2, 0, Math.PI * 2); g.fill();
+    } else if (this.body === 'meteor') {
+      // v6.0 陨石：不规则岩块
+      g.rotate(this.rot);
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(0, -14); g.lineTo(10, -6); g.lineTo(13, 5); g.lineTo(4, 13);
+      g.lineTo(-8, 11); g.lineTo(-13, -2); g.lineTo(-7, -11);
+      g.closePath(); g.fill();
+      g.fillStyle = '#5a3a20';
+      g.beginPath(); g.arc(-3, -2, 3, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(5, 4, 2.2, 0, Math.PI * 2); g.fill();
     } else if (this.body === 'elite') {
       // v3.0 精英机：金色中型舰
       g.fillStyle = col;
@@ -527,6 +547,13 @@ class Enemy {
   }
 }
 
+/* 中场 Boss（v6.0）：stage%5==3 的第 2 波，击破不掉关 */
+const MINI_TYPES = [
+  { name: '哨戒艇 SENTINEL', color: '#3bd4c8', core: '#b0ffff', scale: 0.55, hpBase: 130, hpMul: 1.0, speed: 1.2, fireEvery: 1.0, patterns: ['aimed', 'fan'] },
+  { name: '蜂后 QUEEN',      color: '#ff6a6a', core: '#ffd0d0', scale: 0.60, hpBase: 150, hpMul: 1.0, speed: 0.7, fireEvery: 1.25, patterns: ['spiral', 'ring'], spawns: true },
+  { name: '掠夺者 RAIDER',   color: '#e2883b', core: '#ffd24a', scale: 0.50, hpBase: 110, hpMul: 1.0, speed: 1.6, fireEvery: 0.85, patterns: ['aimed', 'rain'] },
+];
+
 /* ===================== Boss ===================== */
 /* 8 种关底 Boss，按关卡循环并逐关强化 */
 const BOSS_TYPES = [
@@ -547,7 +574,7 @@ class Boss {
     this.level = level;
     this.x = W / 2; this.y = -120;
     this.r = 46 * cfg.scale;
-    const hp = Math.round((320 + (level - 1) * 160) * cfg.hpMul);
+    const hp = Math.round((cfg.hpBase || (320 + (level - 1) * 160)) * cfg.hpMul);
     this.hp = hp; this.maxHp = hp;
     this.phase = 0;          // 0 进场, 1 战斗
     this.dead = false;
@@ -577,6 +604,15 @@ class Boss {
       this._wasEnraged = true;
       game.spawnParticles(this.x, this.y, 30, '#ff5050', 4, 0.6);
       SFX.bossWarn();
+    }
+
+    // 召唤小蜂（蜂后/蜂巢，v6.0/v7.0）
+    if (this.cfg.spawns) {
+      this.spawnCd = (this.spawnCd === undefined ? 2.5 : this.spawnCd) - dt;
+      if (this.spawnCd <= 0 && game.enemies.length < 8) {
+        this.spawnCd = 3.2;
+        game.enemies.push(new Enemy('bee', clamp(this.x + rand(-60, 60), 40, W - 40), this.y + 40, 1));
+      }
     }
 
     // 水平巡航（速度型 Boss 移动更快）

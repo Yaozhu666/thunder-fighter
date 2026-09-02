@@ -32,6 +32,7 @@ class Game {
     this.enemyScale = 1;           // 随关卡增强的系数
     this.bossWarnT = 0;
     this.beam = null;              // 必杀激光状态（v5.0）
+    this.miniBoss = null;          // 中场 Boss（v6.0）
 
     this.shake = 0;
     this.flashWhite = 0;
@@ -85,6 +86,7 @@ class Game {
     this.bombFlash = 0;
     this.bossWarnT = 0;
     this.beam = null;
+    this.miniBoss = null;
     this.ui.setScore(0);
     this.ui.setLives(this.player.lives);
     this.ui.setBombs(this.player.bombs);
@@ -176,6 +178,40 @@ class Game {
       SFX.wave();
     }
 
+    // 中场 Boss 波（v6.0）：stage%5==3 的第 2 波
+    if (this.stage % 5 === 3 && this.waveInStage === 2) {
+      this.bossWarnT = 1.0;
+      SFX.bossWarn();
+      this.spawnQueue = [{ type: 'mini', t: 1.0 }];
+      this.spawnTimer = 0;
+      this.waveTimer = 2.5;
+      this.ui.showWaveBanner(`第 ${this.stage} 关 · 中场 Boss`, true);
+      return;
+    }
+
+    // 事件波（v6.0）：常规第 2 波 28% 概率
+    if (this.waveInStage === 2 && this.stage >= 2) {
+      const evRoll = Math.random();
+      if (evRoll < 0.14) {          // 陨石雨
+        const q = [];
+        const n = 8 + this.stage;
+        for (let i = 0; i < n; i++) q.push({ type: 'meteor', x: rand(30, W - 30), t: 0.4 + i * (2.4 / n) });
+        this.spawnQueue = q;
+        this.spawnTimer = 0;
+        this.waveTimer = 6.0;
+        this.ui.showWaveBanner('⚠ 陨石雨', false);
+        return;
+      } else if (evRoll < 0.28) {   // 蜂群包围
+        const q = [];
+        for (let i = 0; i < 14; i++) q.push({ type: 'bee', x: 60 + (i % 7) * 60 + rand(-10, 10), t: 0.4 + i * 0.18 });
+        this.spawnQueue = q;
+        this.spawnTimer = 0;
+        this.waveTimer = 6.4;
+        this.ui.showWaveBanner('⚠ 蜂群包围', false);
+        return;
+      }
+    }
+
     // 常规波：按预算生成编队（v2.0 每关 2 波：总量少 1/3，但单波密度/敌速与 v1 持平）
     const budget = 7 + this.stage * 3 + this.waveInStage * 2;
     const q = [];
@@ -217,11 +253,17 @@ class Game {
           this.boss = new Boss(cfg, bossIdx);
           this.ui.setBossName(cfg.name);
           this.ui.showBossBar();
+        } else if (item.type === 'mini') {
+          // 中场 Boss（v6.0）：按 stage 轮换 3 种
+          const cfg = MINI_TYPES[Math.floor(this.stage / 5) % MINI_TYPES.length];
+          this.miniBoss = new Boss(cfg, Math.max(1, Math.round(this.stage / 5)));
+          this.ui.setBossName(cfg.name);
+          this.ui.showBossBar();
         } else {
           this.enemies.push(new Enemy(item.type, item.x, -40, this.enemyScale));
         }
       }
-    } else if (!this.boss) {
+    } else if (!this.boss && !this.miniBoss) {
       // 常规波计时推进
       this.waveTimer -= dt;
       if (this.waveTimer <= 0 && this.enemies.length === 0) this.nextWave();
@@ -257,7 +299,7 @@ class Game {
     let kind = null;
     if (enemy.type === 'elite') {
       kind = ['P', 'P', 'W', 'M', 'S', 'B'][irand(0, 5)];
-    } else {
+    } else if (enemy.type !== 'meteor') {   // 陨石不掉落（v6.0）
       const roll = Math.random();
       if (roll < 0.040) kind = 'H';        // 4%
       else if (roll < 0.110) kind = 'B';   // 7%
@@ -386,6 +428,10 @@ class Game {
         this.boss.hp -= 45 * dt;
         if (this.boss.hp <= 0) this.boss.dead = true;
       }
+      if (this.miniBoss && this.miniBoss.phase > 0 && Math.abs(this.miniBoss.x - bx) < 26 + this.miniBoss.r) {
+        this.miniBoss.hp -= 45 * dt;
+        if (this.miniBoss.hp <= 0) this.miniBoss.dead = true;
+      }
       for (const b of this.bullets) {
         if (b.owner === Bullet.enemy && Math.abs(b.x - bx) < 26) {
           b.dead = true;
@@ -393,6 +439,24 @@ class Game {
         }
       }
       if (this.beam.t <= 0) this.beam = null;
+    }
+
+    // 中场 Boss（v6.0）
+    if (this.miniBoss) {
+      this.miniBoss.update(dt, this);
+      this.ui.setBossHp(this.miniBoss.hp / this.miniBoss.maxHp);
+      if (this.miniBoss.dead) {
+        const bonus = 150 * this.stage;
+        this.addScore(bonus);
+        this.explode(this.miniBoss.x, this.miniBoss.y, true);
+        this.ui.floatScore(this.miniBoss.x, this.miniBoss.y - 20, `击破 +${bonus}`, '#ffb04a');
+        // 击破必掉：护盾 + 一件武器道具
+        this.powerups.push(new PowerUp(this.miniBoss.x - 20, this.miniBoss.y, 'S'));
+        this.powerups.push(new PowerUp(this.miniBoss.x + 20, this.miniBoss.y, Math.random() < 0.5 ? 'W' : 'M'));
+        this.miniBoss = null;
+        this.ui.hideBossBar();
+        this.waveTimer = 2.2;
+      }
     }
 
     // 道具
@@ -422,6 +486,11 @@ class Game {
           this.spawnParticles(b.x, b.y, 2, '#ffffff', 1.6, 0.2);
         }
       }
+      if (!b.dead && this.miniBoss && this.miniBoss.phase > 0 && hitTest(b, this.miniBoss)) {
+        b.dead = true;
+        if (this.miniBoss.onHit(this)) this.miniBoss.dead = true;
+        else { SFX.hitEnemy(); this.spawnParticles(b.x, b.y, 2, '#ffffff', 1.6, 0.2); }
+      }
     }
     this.bullets = this.bullets.filter(b => !b.dead);
 
@@ -442,6 +511,9 @@ class Game {
       }
     }
     if (this.boss && this.boss.phase > 0 && hitTest(this.boss, p)) {
+      if (p.onHit(this)) this.killPlayer();
+    }
+    if (this.miniBoss && this.miniBoss.phase > 0 && hitTest(this.miniBoss, p)) {
       if (p.onHit(this)) this.killPlayer();
     }
 
