@@ -181,7 +181,8 @@ class Game {
     while (spent < budget) {
       const roll = Math.random();
       let type = 'bee', cost = 1;
-      if (this.stage >= 1 && this.waveInStage >= 2 && roll < 0.25) { type = 'wing'; cost = 2; }
+      if (this.stage >= 3 && this.waveInStage >= 2 && roll < 0.18) { type = 'elite'; cost = 6; }
+      else if (this.stage >= 1 && this.waveInStage >= 2 && roll < 0.25) { type = 'wing'; cost = 2; }
       else if (this.stage >= 2 && roll < 0.38) { type = 'kamika'; cost = 2.5; }
       else if (this.stage >= 2 && this.waveInStage >= 2 && roll < 0.5) { type = 'heavy'; cost = 4; }
       // 编队：小蜂 3 连
@@ -233,16 +234,20 @@ class Game {
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
-    // 掉落概率（v2.1：新增武器道具 V/W/M；同武器道具拾取升火力，异种切换武器）
-    const roll = Math.random();
+    // 掉落（v3.0：精英机必掉道具；其余按概率表）
     let kind = null;
-    if (roll < 0.040) kind = 'H';        // 4%
-    else if (roll < 0.110) kind = 'B';   // 7%
-    else if (roll < 0.270) kind = 'P';   // 16%
-    else if (roll < 0.335) kind = 'S';   // 6.5%
-    else if (roll < 0.370) kind = 'W';   // 3.5%
-    else if (roll < 0.405) kind = 'M';   // 3.5%
-    else if (roll < 0.430) kind = 'V';   // 2.5%
+    if (enemy.type === 'elite') {
+      kind = ['P', 'P', 'W', 'M', 'S', 'B'][irand(0, 5)];
+    } else {
+      const roll = Math.random();
+      if (roll < 0.040) kind = 'H';        // 4%
+      else if (roll < 0.110) kind = 'B';   // 7%
+      else if (roll < 0.270) kind = 'P';   // 16%
+      else if (roll < 0.335) kind = 'S';   // 6.5%
+      else if (roll < 0.370) kind = 'W';   // 3.5%
+      else if (roll < 0.405) kind = 'M';   // 3.5%
+      else if (roll < 0.430) kind = 'V';   // 2.5%
+    }
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
 

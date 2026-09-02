@@ -220,6 +220,9 @@ class Bullet {
         this.vy = Math.sin(cur) * sp;
       }
     }
+    // 蛇形弹：横向余弦摆动；加速弹：纵向加速度（v3.0）
+    if (this.wob) { this.wob.t += dt; this.x += Math.cos(this.wob.t * this.wob.f) * this.wob.a * dt; }
+    if (this.ay) { this.vy += this.ay * dt; }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     if (this.x < -30 || this.x > W + 30 || this.y < -30 || this.y > H + 30) this.dead = true;
@@ -267,6 +270,7 @@ const ENEMY_TYPES = {
   wing:   { hp: 3,  score: 20, r: 14, color: '#ff9a3c', fire: 2.0,   body: 'wing' },
   kamika: { hp: 4,  score: 30, r: 12, color: '#ff3c9e', fire: 0,     body: 'kamika' },
   heavy:  { hp: 9,  score: 60, r: 22, color: '#b06aff', fire: 1.6,   body: 'heavy' },
+  elite:  { hp: 24, score: 150, r: 26, color: '#ffcf3c', fire: 1.35, body: 'elite' },  // v3.0 精英机
 };
 
 class Enemy {
@@ -297,6 +301,11 @@ class Enemy {
       this.vx = x < W / 2 ? rand(30, 70) : -rand(30, 70);
     } else if (type === 'kamika') {
       this.vy = 60;
+    } else if (type === 'elite') {
+      this.vy = 95;                                 // 进场下压
+      this.vx = rand(45, 75) * (Math.random() < 0.5 ? -1 : 1);
+      this.stopY = rand(110, 200);                  // 悬停高度
+      this.eliteAlt = false;                        // 弹幕交替
     } else { // heavy
       this.vy = rand(46, 64);
       this.vx = 0;
@@ -323,6 +332,10 @@ class Enemy {
       this.x += (dx / d) * sp * dt;
       this.y += (dy / d) * sp * dt;
       if (Math.random() < dt * 8) game.spawnParticles(this.x, this.y, 1, '#ff3c9e', 1.2, 0.3);
+    } else if (this.type === 'elite') {
+      // 进场到悬停高度后水平巡航
+      if (this.y < this.stopY) this.y += this.vy * dt;
+      else { this.x += this.vx * dt; if (this.x < 55 || this.x > W - 55) this.vx *= -1; }
     } else { // heavy：缓慢下压，水平往返
       this.y += this.vy * dt;
       this.x = this.baseX + Math.sin(this.t * 0.9) * 90;
@@ -353,6 +366,22 @@ class Enemy {
       for (let i = -2; i <= 2; i++) {
         const a = ang + i * 0.22;
         game.spawnBullet(E, this.x, this.y + 10, Math.cos(a) * 265, Math.sin(a) * 265, 4.5, '#ff7ad9');
+      }
+    } else if (this.type === 'elite') {
+      // 交替弹幕：蛇形三连 / 慢速加速弹（v3.0）
+      this.eliteAlt = !this.eliteAlt;
+      if (this.eliteAlt) {
+        for (let i = -1; i <= 1; i++) {
+          game.spawnBullet(E, this.x + i * 14, this.y + 16, i * 70, 235, 4.2, '#7affd4', 0,
+            { wob: { a: 120, f: 5.5, t: rand(0, 6) } });
+        }
+      } else {
+        const ang = Math.atan2(p.y - this.y, p.x - this.x);
+        for (let i = 0; i < 3; i++) {
+          const a = ang + (i - 1) * 0.16;
+          game.spawnBullet(E, this.x, this.y + 16, Math.cos(a) * 170, Math.sin(a) * 170, 4, '#ffb04a', i * 0.12,
+            { ay: 280 });
+        }
       }
     }
     SFX.enemyShoot();
@@ -409,6 +438,24 @@ class Enemy {
       g.closePath(); g.fill();
       g.fillStyle = '#fff';
       g.beginPath(); g.arc(0, 2, 3 + Math.sin(this.t * 30) * 1.2, 0, Math.PI * 2); g.fill();
+    } else if (this.body === 'elite') {
+      // v3.0 精英机：金色中型舰
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(0, 26); g.lineTo(-20, 14); g.lineTo(-30, -6); g.lineTo(-14, -22);
+      g.lineTo(14, -22); g.lineTo(30, -6); g.lineTo(20, 14);
+      g.closePath(); g.fill();
+      g.fillStyle = '#3a2a00';
+      g.beginPath(); g.arc(0, 0, 9, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff3b0';
+      g.beginPath(); g.arc(0, 0, 4.5 + Math.sin(this.t * 8) * 1.2, 0, Math.PI * 2); g.fill();
+      // 血条
+      if (this.hp < this.maxHp) {
+        g.fillStyle = '#3a2a10';
+        g.fillRect(-24, -30, 48, 4);
+        g.fillStyle = '#ffd24a';
+        g.fillRect(-24, -30, 48 * this.hp / this.maxHp, 4);
+      }
     } else { // heavy
       g.fillStyle = col;
       g.beginPath();
