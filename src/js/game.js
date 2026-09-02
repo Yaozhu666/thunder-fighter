@@ -86,6 +86,7 @@ class Game {
     this.ui.setScore(0);
     this.ui.setLives(this.player.lives);
     this.ui.setBombs(this.player.bombs);
+    this.ui.setWeapon(this.player.weapon, this.player.power);
     this.ui.hideBossBar();
   }
 
@@ -107,12 +108,29 @@ class Game {
   }
 
   /* ---------- 生成接口 ---------- */
-  spawnBullet(owner, x, y, vx, vy, r, color, delay = 0) {
+  spawnBullet(owner, x, y, vx, vy, r, color, delay = 0, opts = null) {
     if (delay > 0) {
-      this.pendingBullets.push({ owner, x, y, vx, vy, r, color, delay });
+      this.pendingBullets.push({ owner, x, y, vx, vy, r, color, delay, opts });
     } else {
-      this.bullets.push(new Bullet(owner, x, y, vx, vy, r, color));
+      const b = new Bullet(owner, x, y, vx, vy, r, color);
+      if (opts) Object.assign(b, opts);
+      this.bullets.push(b);
     }
+  }
+
+  /* 追踪导弹索敌：最近的存活敌机或 Boss */
+  nearestTarget(x, y) {
+    let best = null, bd = Infinity;
+    for (const e of this.enemies) {
+      if (e.dead || e.y < -20) continue;
+      const d = dist2(x, y, e.x, e.y);
+      if (d < bd) { bd = d; best = e; }
+    }
+    if (this.boss && this.boss.phase > 0 && !this.boss.dead) {
+      const d = dist2(x, y, this.boss.x, this.boss.y);
+      if (d < bd) best = this.boss;
+    }
+    return best;
   }
 
   spawnParticles(x, y, n, color, size = 3, life = 0.5) {
@@ -215,13 +233,16 @@ class Game {
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
-    // 掉落概率（v2.0.1：P 回调至 18%——Boss 重置火力后需要足够 P 补级）
+    // 掉落概率（v2.1：新增武器道具 V/W/M；同武器道具拾取升火力，异种切换武器）
     const roll = Math.random();
     let kind = null;
-    if (roll < 0.045) kind = 'H';
-    else if (roll < 0.13) kind = 'B';
-    else if (roll < 0.31) kind = 'P';
-    else if (roll < 0.39) kind = 'S';
+    if (roll < 0.040) kind = 'H';        // 4%
+    else if (roll < 0.110) kind = 'B';   // 7%
+    else if (roll < 0.270) kind = 'P';   // 16%
+    else if (roll < 0.335) kind = 'S';   // 6.5%
+    else if (roll < 0.370) kind = 'W';   // 3.5%
+    else if (roll < 0.405) kind = 'M';   // 3.5%
+    else if (roll < 0.430) kind = 'V';   // 2.5%
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
 
@@ -275,10 +296,14 @@ class Game {
     // 玩家子弹（含延迟弹）
     for (const pb of this.pendingBullets) {
       pb.delay -= dt;
-      if (pb.delay <= 0) this.bullets.push(new Bullet(pb.owner, pb.x, pb.y, pb.vx, pb.vy, pb.r, pb.color));
+      if (pb.delay <= 0) {
+        const b = new Bullet(pb.owner, pb.x, pb.y, pb.vx, pb.vy, pb.r, pb.color);
+        if (pb.opts) Object.assign(b, pb.opts);
+        this.bullets.push(b);
+      }
     }
     this.pendingBullets = this.pendingBullets.filter(b => b.delay > 0);
-    for (const b of this.bullets) b.update(dt);
+    for (const b of this.bullets) b.update(dt, this);
     this.bullets = this.bullets.filter(b => !b.dead);
 
     // 敌机
@@ -302,10 +327,12 @@ class Game {
         this.powerups.push(new PowerUp(this.boss.x + 24, this.boss.y, Math.random() < 0.5 ? 'B' : 'H'));
         this.boss = null;
         this.ui.hideBossBar();
-        // v2.0：通过 Boss 关，失去获得的武器升级能力（生命/护盾/炸弹保留）
-        if (this.player.power > 1) {
+        // v2.0：通过 Boss 关武器重置（v2.1：种类一并回归火神炮，生命/护盾/炸弹保留）
+        if (this.player.power > 1 || this.player.weapon !== 'V') {
           this.player.power = 1;
+          this.player.weapon = 'V';
           this.ui.floatScore(this.player.x, this.player.y - 40, '武器重置！', '#ff9a3c');
+          this.ui.setWeapon('V', 1);
         }
         // 进入下一关
         this.stage++;
@@ -382,6 +409,17 @@ class Game {
     if (kind === 'P') {
       if (p.power < 5) { p.power++; this.ui.floatScore(p.x, p.y - 34, '火力提升!', '#4aff8a'); }
       else { this.addScore(100); this.ui.floatScore(p.x, p.y - 34, '+100', '#4aff8a'); }
+      this.ui.setWeapon(p.weapon, p.power);
+    } else if (kind === 'V' || kind === 'W' || kind === 'M') {
+      const w = WEAPONS[kind];
+      if (p.weapon === kind) {
+        if (p.power < 5) { p.power++; this.ui.floatScore(p.x, p.y - 34, `${w.name} 强化!`, w.color); }
+        else { this.addScore(100); this.ui.floatScore(p.x, p.y - 34, '+100', w.color); }
+      } else {
+        p.weapon = kind;
+        this.ui.floatScore(p.x, p.y - 34, `切换 ${w.name}!`, w.color);
+      }
+      this.ui.setWeapon(p.weapon, p.power);
     } else if (kind === 'S') {
       p.shield = Math.min(3, p.shield + 1);
       this.ui.floatScore(p.x, p.y - 34, '护盾!', '#4ac8ff');
@@ -407,6 +445,7 @@ class Game {
       this.gameOver();
     } else {
       p.power = Math.max(1, p.power - 1);   // 掉一级火力
+      this.ui.setWeapon(p.weapon, p.power);
       p.x = W / 2; p.y = H - 120;
       p.invul = 2.4;
     }

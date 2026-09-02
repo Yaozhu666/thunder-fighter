@@ -24,7 +24,7 @@
   const ui = {
     el: {
       hud: $('hud'), score: $('score'), best: $('best'),
-      lives: $('hud-lives'), bombs: $('hud-bombs'),
+      lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -56,6 +56,12 @@
         d.className = 'pip pip-bomb';
         this.el.bombs.appendChild(d);
       }
+    },
+    setWeapon(type, lv) {
+      const w = WEAPONS[type];
+      this.el.weapon.textContent = `${w.name} Lv${lv}`;
+      this.el.weapon.style.color = w.color;
+      this.el.weapon.style.textShadow = `0 0 8px ${w.color}66`;
     },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },

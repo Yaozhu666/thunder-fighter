@@ -14,6 +14,14 @@ function hitTest(a, b) {
   return dist2(a.x, a.y, b.x, b.y) <= r * r;
 }
 
+/* ===================== 武器种类 ===================== */
+/* V 火神炮（默认直射）/ W 散弹（宽角扇面）/ M 追踪导弹（自动索敌） */
+const WEAPONS = {
+  V: { name: '火神炮',   color: '#9ff7ff' },
+  W: { name: '散弹',     color: '#f4ff4a' },
+  M: { name: '追踪导弹', color: '#c44aff' },
+};
+
 /* ===================== 玩家 ===================== */
 class Player {
   constructor() {
@@ -22,7 +30,8 @@ class Player {
     this.speed = 340;
     this.lives = 3;
     this.bombs = 2;
-    this.power = 1;           // 火力等级 1~5
+    this.power = 1;           // 火力等级 1~5（各武器通用）
+    this.weapon = 'V';        // 武器种类
     this.shield = 0;          // 护盾剩余次数
     this.invul = 0;           // 无敌剩余秒数
     this.fireCd = 0;          // 开火冷却
@@ -54,11 +63,12 @@ class Player {
 
     if (this.invul > 0) this.invul -= dt;
 
-    // 自动开火
+    // 自动开火（冷却按武器区分：导弹节奏慢但自动索敌）
     this.fireCd -= dt;
     if (this.fireCd <= 0) {
       this.fire(game);
-      this.fireCd = 0.16 - Math.min(0.06, (this.power - 1) * 0.015);
+      const base = { V: 0.16, W: 0.19, M: 0.30 }[this.weapon];
+      this.fireCd = base - Math.min(0.06, (this.power - 1) * 0.015);
     }
   }
 
@@ -66,23 +76,46 @@ class Player {
     const B = Bullet.player;
     const x = this.x, y = this.y - 24;
     const lv = this.power;
-    if (lv === 1)      game.spawnBullet(B, x, y, 0, -620, 3.2, '#9ff7ff');
-    else if (lv === 2) { game.spawnBullet(B, x - 9, y, 0, -620, 3.2, '#9ff7ff');
-                         game.spawnBullet(B, x + 9, y, 0, -620, 3.2, '#9ff7ff'); }
-    else if (lv === 3) { game.spawnBullet(B, x, y - 6, 0, -660, 3.6, '#dfffff');
-                         game.spawnBullet(B, x - 12, y + 4, -70, -600, 3.2, '#9ff7ff');
-                         game.spawnBullet(B, x + 12, y + 4, 70, -600, 3.2, '#9ff7ff'); }
-    else if (lv === 4) { game.spawnBullet(B, x - 6, y, 0, -680, 3.8, '#dfffff');
-                         game.spawnBullet(B, x + 6, y, 0, -680, 3.8, '#dfffff');
-                         game.spawnBullet(B, x - 15, y + 6, -110, -580, 3.2, '#9ff7ff');
-                         game.spawnBullet(B, x + 15, y + 6, 110, -580, 3.2, '#9ff7ff'); }
-    else {               game.spawnBullet(B, x, y - 8, 0, -700, 4.2, '#ffffff');
-                         game.spawnBullet(B, x - 8, y, -40, -680, 3.8, '#dfffff');
-                         game.spawnBullet(B, x + 8, y, 40, -680, 3.8, '#dfffff');
-                         game.spawnBullet(B, x - 18, y + 8, -150, -560, 3.2, '#9ff7ff');
-                         game.spawnBullet(B, x + 18, y + 8, 150, -560, 3.2, '#9ff7ff');
-                         game.spawnBullet(B, x - 24, y + 12, -230, -520, 3, '#6ef3ff');
-                         game.spawnBullet(B, x + 24, y + 12, 230, -520, 3, '#6ef3ff'); }
+    if (this.weapon === 'W') {
+      // 散弹：宽角扇面，覆盖广，逐级加弹数/威力
+      const cfg = [null,
+        { n: 3, spr: 0.55, sp: 560, r: 3.2 },
+        { n: 5, spr: 0.75, sp: 560, r: 3.2 },
+        { n: 5, spr: 0.75, sp: 605, r: 3.6 },
+        { n: 7, spr: 0.95, sp: 605, r: 3.6 },
+        { n: 9, spr: 1.15, sp: 650, r: 4.0 },
+      ][lv];
+      for (let i = 0; i < cfg.n; i++) {
+        const a = -Math.PI / 2 + (cfg.n > 1 ? (i / (cfg.n - 1) - 0.5) * cfg.spr : 0);
+        game.spawnBullet(B, x, y, Math.cos(a) * cfg.sp, Math.sin(a) * cfg.sp, cfg.r, '#f4ff4a');
+      }
+    } else if (this.weapon === 'M') {
+      // 追踪导弹：数量少，自动转向索敌
+      const n = [0, 1, 2, 3, 4, 6][lv];
+      for (let i = 0; i < n; i++) {
+        const off = i - (n - 1) / 2;
+        game.spawnBullet(B, x + off * 9, y, off * 22, -500, 4, '#ffb04a', 0,
+          { homing: true, accel: 560, maxSp: 780, turnRate: 5.0 });
+      }
+    } else { // V 火神炮：原版直射弹幕
+      if (lv === 1)      game.spawnBullet(B, x, y, 0, -620, 3.2, '#9ff7ff');
+      else if (lv === 2) { game.spawnBullet(B, x - 9, y, 0, -620, 3.2, '#9ff7ff');
+                           game.spawnBullet(B, x + 9, y, 0, -620, 3.2, '#9ff7ff'); }
+      else if (lv === 3) { game.spawnBullet(B, x, y - 6, 0, -660, 3.6, '#dfffff');
+                           game.spawnBullet(B, x - 12, y + 4, -70, -600, 3.2, '#9ff7ff');
+                           game.spawnBullet(B, x + 12, y + 4, 70, -600, 3.2, '#9ff7ff'); }
+      else if (lv === 4) { game.spawnBullet(B, x - 6, y, 0, -680, 3.8, '#dfffff');
+                           game.spawnBullet(B, x + 6, y, 0, -680, 3.8, '#dfffff');
+                           game.spawnBullet(B, x - 15, y + 6, -110, -580, 3.2, '#9ff7ff');
+                           game.spawnBullet(B, x + 15, y + 6, 110, -580, 3.2, '#9ff7ff'); }
+      else {               game.spawnBullet(B, x, y - 8, 0, -700, 4.2, '#ffffff');
+                           game.spawnBullet(B, x - 8, y, -40, -680, 3.8, '#dfffff');
+                           game.spawnBullet(B, x + 8, y, 40, -680, 3.8, '#dfffff');
+                           game.spawnBullet(B, x - 18, y + 8, -150, -560, 3.2, '#9ff7ff');
+                           game.spawnBullet(B, x + 18, y + 8, 150, -560, 3.2, '#9ff7ff');
+                           game.spawnBullet(B, x - 24, y + 12, -230, -520, 3, '#6ef3ff');
+                           game.spawnBullet(B, x + 24, y + 12, 230, -520, 3, '#6ef3ff'); }
+    }
     SFX.shoot();
   }
 
@@ -170,7 +203,23 @@ class Bullet {
     this.dead = false;
     this.homing = false;
   }
-  update(dt) {
+  update(dt, game) {
+    // 追踪弹：限速转向朝最近目标，加速逼近
+    if (this.homing && game) {
+      const tgt = game.nearestTarget(this.x, this.y);
+      if (tgt) {
+        const want = Math.atan2(tgt.y - this.y, tgt.x - this.x);
+        let cur = Math.atan2(this.vy, this.vx);
+        let d = want - cur;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        const turn = (this.turnRate || 5) * dt;
+        cur += clamp(d, -turn, turn);
+        const sp = Math.min(this.maxSp || 780, Math.hypot(this.vx, this.vy) + (this.accel || 520) * dt);
+        this.vx = Math.cos(cur) * sp;
+        this.vy = Math.sin(cur) * sp;
+      }
+    }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     if (this.x < -30 || this.x > W + 30 || this.y < -30 || this.y > H + 30) this.dead = true;
@@ -180,7 +229,22 @@ class Bullet {
     g.shadowColor = this.color;
     g.shadowBlur = 6;
     if (this.owner === 'player') {
-      g.fillRect(this.x - 1.6, this.y - this.r * 2.2, 3.2, this.r * 4.4);
+      if (this.homing) {
+        // 导弹：沿速度方向的小火箭
+        const ang = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+        g.save();
+        g.translate(this.x, this.y);
+        g.rotate(ang);
+        g.fillStyle = '#ffe9b0';
+        g.fillRect(-1.8, -6, 3.6, 12);
+        g.fillStyle = '#ffb04a';
+        g.beginPath(); g.moveTo(0, -10.5); g.lineTo(-2.6, -6); g.lineTo(2.6, -6); g.closePath(); g.fill();
+        g.fillStyle = `rgba(255,150,60,${0.55 + Math.random() * 0.4})`;
+        g.beginPath(); g.moveTo(-1.8, 6); g.lineTo(1.8, 6); g.lineTo(0, 12 + Math.random() * 5); g.closePath(); g.fill();
+        g.restore();
+      } else {
+        g.fillRect(this.x - 1.6, this.y - this.r * 2.2, 3.2, this.r * 4.4);
+      }
     } else {
       g.beginPath();
       g.arc(this.x, this.y, this.r, 0, Math.PI * 2);
@@ -251,11 +315,11 @@ class Enemy {
       this.x += this.vx * dt;
       if (this.x < 20 || this.x > W - 20) this.vx *= -1;
     } else if (this.type === 'kamika') {
-      // 追踪玩家，越追越快
+      // 追踪玩家，越追越快（v2.1 削弱：初速 200→140，加速 260→110/s，上限 640→400）
       const p = game.player;
       const dx = p.x - this.x, dy = p.y - this.y;
       const d = Math.hypot(dx, dy) || 1;
-      const sp = Math.min(640, 200 + this.t * 260);
+      const sp = Math.min(400, 140 + this.t * 110);
       this.x += (dx / d) * sp * dt;
       this.y += (dy / d) * sp * dt;
       if (Math.random() < dt * 8) game.spawnParticles(this.x, this.y, 1, '#ff3c9e', 1.2, 0.3);
@@ -541,7 +605,7 @@ class Boss {
 }
 
 /* ===================== 道具 ===================== */
-const POWERUP_KINDS = ['P', 'S', 'B', 'H'];
+const POWERUP_KINDS = ['P', 'S', 'B', 'H', 'V', 'W', 'M'];
 
 class PowerUp {
   constructor(x, y, kind) {
@@ -559,7 +623,7 @@ class PowerUp {
     if (this.y > H + 30) this.dead = true;
   }
   draw(g, time) {
-    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e' };
+    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e', V: '#e8f6ff', W: '#f4ff4a', M: '#c44aff' };
     const c = colors[this.kind];
     g.save();
     g.translate(this.x, this.y);
