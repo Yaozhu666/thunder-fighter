@@ -80,6 +80,9 @@ class Game {
     this._makeVignette();
     this.shoot = null;             // 流星点缀（v11.2）
     this.shootCd = rand(3, 8);
+    this.shakeOn = true;           // 屏幕震动开关（v11.3，持久化）
+    try { this.shakeOn = localStorage.getItem('th_shake') !== '0'; } catch (e) {}
+    this.bombRing = 0;             // 炸弹冲击波（v11.3）
   }
 
   /* 暗角贴图：预渲染一次，避免每帧径向渐变（v11.2） */
@@ -223,6 +226,7 @@ class Game {
   }
 
   spawnParticles(x, y, n, color, size = 3, life = 0.5) {
+    if (this.particles.length > 420) return;   // v11.3 性能保护：粒子上限
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = rand(40, 240);
@@ -427,6 +431,7 @@ class Game {
     p.bombs--;
     this.ui.setBombs(p.bombs);
     this.bombFlash = 0.9;
+    this.bombRing = 0.55;   // v11.3 冲击波圆环
     this.shake = 18;
     SFX.bomb();
 
@@ -463,6 +468,7 @@ class Game {
     }
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 40);
     if (this.bombFlash > 0) this.bombFlash -= dt;
+    if (this.bombRing > 0) this.bombRing -= dt;   // v11.3
     if (this.comboT > 0) {           // v10.0 连击窗口
       this.comboT -= dt;
       if (this.comboT <= 0) { this.combo = 0; this.ui.setCombo(0); }
@@ -730,8 +736,8 @@ class Game {
     const g = this.g;
     g.save();
 
-    // 屏幕震动
-    if (this.shake > 0) {
+    // 屏幕震动（v11.3：受开关控制）
+    if (this.shake > 0 && this.shakeOn) {
       g.translate(rand(-this.shake, this.shake) * 0.5, rand(-this.shake, this.shake) * 0.5);
     }
 
@@ -806,6 +812,15 @@ class Game {
       g.shadowBlur = 0;
     }
 
+    // 炸弹冲击波圆环（v11.3）
+    if (this.bombRing > 0) {
+      const pr = 1 - this.bombRing / 0.55;
+      g.strokeStyle = `rgba(255,230,170,${(0.7 * (1 - pr)).toFixed(3)})`;
+      g.lineWidth = 6 + pr * 12;
+      g.beginPath();
+      g.arc(W / 2, H / 2, pr * 540, 0, Math.PI * 2);
+      g.stroke();
+    }
     // 炸弹白闪
     if (this.bombFlash > 0) {
       g.fillStyle = `rgba(255,240,200,${Math.min(0.75, this.bombFlash * 0.9)})`;

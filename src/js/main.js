@@ -29,7 +29,7 @@
       stage: $('hud-stage'), buffs: $('hud-buffs'),
       achCount: $('ach-count'), overCombo: $('over-combo'), overAch: $('over-ach'),
       pauseScore: $('pause-score'), pauseStage: $('pause-stage'), pauseCombo: $('pause-combo'),
-      btnMute: $('btn-mute'),
+      btnMute: $('btn-mute'), btnShake: $('btn-shake'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -104,6 +104,10 @@
     setMuteUI(m) {
       this.el.btnMute.textContent = m ? '🔇' : '🔊';
       this.el.btnMute.classList.toggle('muted', m);
+    },
+    setShakeUI(on) {
+      this.el.btnShake.textContent = on ? '开' : '关';
+      this.el.btnShake.classList.toggle('off', !on);
     },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
@@ -223,6 +227,7 @@
     if (game.state !== 'playing') return;
     game.pause();
     ui.setPauseStats(game.score, game.stage, game.maxCombo);
+    ui.setShakeUI(game.shakeOn);
     ui.showScreen('pause');
   }
   $('btn-start').addEventListener('click', startGame);
@@ -248,6 +253,12 @@
   // 页面切走自动暂停（v11.0）
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) doPause();
+  });
+  // 屏幕震动开关（v11.3）
+  $('btn-shake').addEventListener('click', () => {
+    game.shakeOn = !game.shakeOn;
+    try { localStorage.setItem('th_shake', game.shakeOn ? '1' : '0'); } catch (e) {}
+    ui.setShakeUI(game.shakeOn);
   });
 
   /* ---------- 主循环 ---------- */
