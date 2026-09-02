@@ -225,16 +225,16 @@ class Enemy {
     this.flash = 0;
 
     if (this.type === 'bee') {
-      this.vy = rand(150, 210) * Math.min(1.6, waveScale);
+      this.vy = rand(170, 235) * Math.min(1.7, waveScale);
       this.amp = rand(30, 70);
       this.freq = rand(2, 4);
     } else if (type === 'wing') {
-      this.vy = rand(90, 130) * Math.min(1.5, waveScale);
+      this.vy = rand(105, 150) * Math.min(1.7, waveScale);
       this.vx = x < W / 2 ? rand(30, 70) : -rand(30, 70);
     } else if (type === 'kamika') {
       this.vy = 60;
     } else { // heavy
-      this.vy = rand(46, 64);
+      this.vy = rand(52, 74);
       this.vx = 0;
     }
   }
@@ -383,22 +383,23 @@ const BOSS_TYPES = [
 
 class Boss {
   constructor(cfg, level) {
+    // level = Boss 序号（第几个 Boss，1 起）
     this.cfg = cfg;
     this.level = level;
     this.x = W / 2; this.y = -120;
     this.r = 46 * cfg.scale;
-    const hp = Math.round((300 + level * 100) * cfg.hpMul);
+    const hp = Math.round((320 + (level - 1) * 160) * cfg.hpMul);
     this.hp = hp; this.maxHp = hp;
     this.phase = 0;          // 0 进场, 1 战斗
     this.dead = false;
     this.t = 0;
-    this.fireCd = 2;
+    this.fireCd = 1.6;
     this.patternIdx = 0;
     this.spiralA = Math.random() * Math.PI * 2;
     this.flash = 0;
     // 关卡强化系数
-    this.bSpeed = 1 + Math.min(0.6, (level - 1) * 0.07);
-    this.cdMul = Math.max(0.55, 1 - (level - 1) * 0.05);
+    this.bSpeed = 1 + Math.min(0.6, (level - 1) * 0.09);
+    this.cdMul = Math.max(0.5, 1 - (level - 1) * 0.07);
   }
 
   get enraged() { return this.hp < this.maxHp * 0.35; }

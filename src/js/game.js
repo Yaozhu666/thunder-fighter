@@ -131,21 +131,22 @@ class Game {
     else { this.shake = Math.max(this.shake, 6); SFX.explode(); }
   }
 
-  /* ---------- 关卡系统：每关 3 个常规波 + 关底 Boss，关卡无限 ---------- */
+  /* ---------- 关卡系统 v2.0：常规关 2 个快节奏波；每 5 关一个独立 Boss 关 ---------- */
   nextWave() {
     this.wave++;
-    this.waveInStage++;
-    if (this.waveInStage > 4) { this.waveInStage = 1; }
+    // 常规关最多 2 波，走完自动进入下一关
+    if (this.waveInStage > 2) { this.waveInStage = 1; this.stage++; }
+    else { this.waveInStage++; }
 
-    this.enemyScale = 1 + (this.stage - 1) * 0.22 + (this.waveInStage - 1) * 0.04;
+    this.enemyScale = 1 + (this.stage - 1) * 0.22 + (this.waveInStage - 1) * 0.05;
 
-    if (this.waveInStage === 4) {
-      // 关底 Boss 波
-      this.bossWarnT = 2.2;
+    if (this.stage % 5 === 0) {
+      // Boss 关：独立成关，只有 Boss
+      this.bossWarnT = 1.5;
       SFX.bossWarn();
-      this.spawnQueue = [{ type: 'boss', t: 2.4 }];
+      this.spawnQueue = [{ type: 'boss', t: 1.6 }];
       this.spawnTimer = 0;
-      this.ui.showWaveBanner(`第 ${this.stage} 关 · BOSS 来袭`, true);
+      this.ui.showWaveBanner(`第 ${this.stage} 关 · BOSS 关`, true);
       return;
     }
 
@@ -154,10 +155,10 @@ class Game {
       SFX.wave();
     }
 
-    // 常规波：按预算生成编队（关卡与关内波次双成长）
-    const budget = 7 + this.stage * 3 + this.waveInStage * 2;
+    // 常规波：按预算生成编队（关卡与关内波次双成长，节奏更快）
+    const budget = 8 + this.stage * 3.2 + this.waveInStage * 2.5;
     const q = [];
-    let t = 0.4;
+    let t = 0.3;
     let spent = 0;
     while (spent < budget) {
       const roll = Math.random();
@@ -168,17 +169,17 @@ class Game {
       // 编队：小蜂 3 连
       if (type === 'bee' && Math.random() < 0.6) {
         const x = rand(50, W - 50);
-        for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.28 });
-        spent += cost * 3; t += 0.9;
+        for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.22 });
+        spent += cost * 3; t += 0.6;
       } else {
         q.push({ type, x: rand(40, W - 40), t });
-        spent += cost; t += rand(0.4, 0.8);
+        spent += cost; t += rand(0.25, 0.55);
       }
     }
     this.spawnQueue = q;
     this.spawnTimer = 0;
-    // 波次限时推进：队列走完 + 3.5 秒缓冲
-    this.waveTimer = t + 3.5;
+    // 波次限时推进：队列走完 + 1.8 秒缓冲（v2.0 提速）
+    this.waveTimer = t + 1.8;
   }
 
   updateWave(dt) {
@@ -188,8 +189,10 @@ class Game {
       while (this.spawnQueue.length && this.spawnQueue[0].t <= this.spawnTimer) {
         const item = this.spawnQueue.shift();
         if (item.type === 'boss') {
-          const cfg = BOSS_TYPES[(this.stage - 1) % BOSS_TYPES.length];
-          this.boss = new Boss(cfg, this.stage);
+          // 每 5 关一个 Boss，按 Boss 序号（第几个 Boss）取配置与强化
+          const bossIdx = Math.max(1, Math.round(this.stage / 5));
+          const cfg = BOSS_TYPES[(bossIdx - 1) % BOSS_TYPES.length];
+          this.boss = new Boss(cfg, bossIdx);
           this.ui.setBossName(cfg.name);
           this.ui.showBossBar();
         } else {
@@ -212,13 +215,13 @@ class Game {
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
-    // 掉落概率
+    // 掉落概率（v2.0：P 下调至 12%，前期不再轻松满级）
     const roll = Math.random();
     let kind = null;
     if (roll < 0.045) kind = 'H';
     else if (roll < 0.13) kind = 'B';
-    else if (roll < 0.34) kind = 'P';
-    else if (roll < 0.42) kind = 'S';
+    else if (roll < 0.25) kind = 'P';
+    else if (roll < 0.33) kind = 'S';
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
 
@@ -294,16 +297,21 @@ class Game {
         this.explode(this.boss.x - 40, this.boss.y + 20, true);
         this.explode(this.boss.x + 40, this.boss.y - 10, true);
         this.ui.floatScore(this.boss.x, this.boss.y - 20, `通关奖励 +${bonus}`, '#ff7ad9');
-        // Boss 必掉双道具
-        this.powerups.push(new PowerUp(this.boss.x - 24, this.boss.y, 'P'));
+        // Boss 必掉护盾 + (炸弹或生命)——v2.0 过 Boss 关武器重置，掉 P 无意义
+        this.powerups.push(new PowerUp(this.boss.x - 24, this.boss.y, 'S'));
         this.powerups.push(new PowerUp(this.boss.x + 24, this.boss.y, Math.random() < 0.5 ? 'B' : 'H'));
         this.boss = null;
         this.ui.hideBossBar();
+        // v2.0：通过 Boss 关，失去获得的武器升级能力（生命/护盾/炸弹保留）
+        if (this.player.power > 1) {
+          this.player.power = 1;
+          this.ui.floatScore(this.player.x, this.player.y - 40, '武器重置！', '#ff9a3c');
+        }
         // 进入下一关
         this.stage++;
         this.waveInStage = 0;
-        this.waveTimer = 2.8;
-        this.ui.showWaveBanner(`第 ${this.stage - 1} 关 突破！`, false, 1800);
+        this.waveTimer = 2.2;
+        this.ui.showWaveBanner(`第 ${this.stage - 1} 关 突破！`, false, 1600);
         this.spawnQueue = [];
       }
     }
