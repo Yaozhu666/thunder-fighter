@@ -55,6 +55,29 @@ canvas { display: block; width: 100%; height: 100%; background: #04060f; }
   background: linear-gradient(90deg, #ffc860, #ffe14a);
   transition: width .12s linear;
 }
+#hud-diff {
+  position: absolute; top: 14px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px; letter-spacing: 3px; opacity: .9;
+}
+
+/* 难度选择（v9.0） */
+.diff-row { display: flex; gap: 10px; margin-bottom: 4px; }
+.btn-diff {
+  padding: 8px 22px;
+  font-size: 14px; letter-spacing: 3px;
+  color: #9db8d8;
+  background: none;
+  border: 1px solid #3a5a85; border-radius: 6px;
+  cursor: pointer;
+}
+.btn-diff:hover { color: #fff; border-color: var(--cyan); }
+.btn-diff.active {
+  color: #041018; font-weight: bold;
+  background: linear-gradient(180deg, #9ff7ff, #23a7e0);
+  border-color: transparent;
+  box-shadow: 0 0 14px rgba(80, 200, 255, .5);
+}
 
 /* 退出按钮：右上角，触屏可点 */
 #btn-exit {

@@ -1,6 +1,13 @@
 /* game.js —— 游戏核心：主循环 / 波次 / 碰撞 / 渲染 */
 'use strict';
 
+/* 难度档位（v9.0） */
+const DIFFS = {
+  easy:   { name: '轻松', color: '#4aff8a', bSp: 0.80, cd: 1.25, dropMul: 1.30, scoreMul: 0.80, hpMul: 0.85 },
+  normal: { name: '标准', color: '#6ef3ff', bSp: 1.00, cd: 1.00, dropMul: 1.00, scoreMul: 1.00, hpMul: 1.00 },
+  hard:   { name: '炼狱', color: '#ff5a5a', bSp: 1.18, cd: 0.78, dropMul: 0.75, scoreMul: 1.60, hpMul: 1.25 },
+};
+
 class Game {
   constructor(canvas, ui) {
     this.canvas = canvas;
@@ -12,6 +19,11 @@ class Game {
     this.score = 0;
     this.kills = 0;
     this.best = 0;
+
+    let savedDiff = 'normal';
+    try { savedDiff = localStorage.getItem('th_diff') || 'normal'; } catch (e) {}
+    this.diffKey = DIFFS[savedDiff] ? savedDiff : 'normal';
+    this.diff = DIFFS[this.diffKey];
 
     this.player = new Player();
     this.bullets = [];
@@ -92,6 +104,7 @@ class Game {
     this.ui.setBombs(this.player.bombs);
     this.ui.setWeapon(this.player.weapon, this.player.power);
     this.ui.setEnergy(0);
+    this.ui.setDiff(this.diff);
     this.ui.hideBossBar();
   }
 
@@ -104,6 +117,15 @@ class Game {
   resume() { if (this.state === 'paused') this.state = 'playing'; }
   toTitle(){ this.state = 'title'; }
 
+  /* 难度切换（v9.0） */
+  setDifficulty(key) {
+    if (!DIFFS[key]) return;
+    this.diffKey = key;
+    this.diff = DIFFS[key];
+    try { localStorage.setItem('th_diff', key); } catch (e) {}
+    this.ui.setDiff(this.diff);
+  }
+
   gameOver() {
     this.state = 'gameover';
     SFX.gameover();
@@ -114,6 +136,9 @@ class Game {
 
   /* ---------- 生成接口 ---------- */
   spawnBullet(owner, x, y, vx, vy, r, color, delay = 0, opts = null) {
+    if (owner === 'enemy' && this.diff.bSp !== 1) {   // v9.0 难度：敌弹速
+      vx *= this.diff.bSp; vy *= this.diff.bSp;
+    }
     if (delay > 0) {
       this.pendingBullets.push({ owner, x, y, vx, vy, r, color, delay, opts });
     } else {
@@ -260,7 +285,7 @@ class Game {
           this.ui.setBossName(cfg.name);
           this.ui.showBossBar();
         } else {
-          this.enemies.push(new Enemy(item.type, item.x, -40, this.enemyScale));
+          this.enemies.push(new Enemy(item.type, item.x, -40, this.enemyScale * this.diff.hpMul));
         }
       }
     } else if (!this.boss && !this.miniBoss) {
@@ -300,7 +325,7 @@ class Game {
     if (enemy.type === 'elite') {
       kind = ['P', 'P', 'W', 'M', 'S', 'B'][irand(0, 5)];
     } else if (enemy.type !== 'meteor') {   // 陨石不掉落（v6.0）
-      const roll = Math.random();
+      const roll = Math.random() / this.diff.dropMul;   // v9.0 难度掉率系数
       if (roll < 0.035) kind = 'H';        // 3.5%
       else if (roll < 0.10) kind = 'B';    // 6.5%
       else if (roll < 0.25) kind = 'P';    // 15%
@@ -316,7 +341,7 @@ class Game {
   }
 
   addScore(n) {
-    this.score += n;
+    this.score += Math.round(n * this.diff.scoreMul);   // v9.0 难度得分倍率
     this.ui.setScore(this.score);
   }
 

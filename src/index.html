@@ -14,6 +14,7 @@
   <div id="hud" class="hidden">
     <div id="hud-score">SCORE <span id="score">0</span></div>
     <div id="hud-best">BEST <span id="best">0</span></div>
+    <div id="hud-diff"></div>
     <div id="hud-lives"></div>
     <div id="hud-bombs"></div>
     <div id="hud-energy"><div id="hud-energy-fill"></div></div>
@@ -35,8 +36,13 @@
     <div class="menu-hint">
       <p>移动：鼠标 / WASD / 方向键 / 触摸拖动</p>
       <p>射击：自动 &nbsp;|&nbsp; 炸弹：空格 / 双击</p>
-      <p>武器道具：W 散弹 / M 追踪导弹 / V 火神炮 / O 僚机（同类再拾取升火力）</p>
+      <p>武器道具：W 散弹 / M 追踪导弹 / V 火神炮 / O 僚机 / G 磁力 / C 暴击</p>
       <p>必杀：E / 长按屏幕（能量满时）&nbsp;|&nbsp; 暂停：P、Esc 或 ✕</p>
+    </div>
+    <div class="diff-row">
+      <button class="btn-diff" data-diff="easy">轻松</button>
+      <button class="btn-diff active" data-diff="normal">标准</button>
+      <button class="btn-diff" data-diff="hard">炼狱</button>
     </div>
     <button id="btn-start" class="btn">开始出击</button>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>

@@ -407,7 +407,7 @@ class Enemy {
       this.fireTimer -= dt;
       if (this.fireTimer <= 0 && this.y > 0 && this.y < H - 120) {
         this.fire(game);
-        this.fireTimer = this.fireEvery * rand(0.85, 1.2);
+        this.fireTimer = this.fireEvery * game.diff.cd * rand(0.85, 1.2);   // v9.0 难度射速
       }
     }
     if (this.y > H + 40) this.dead = true;
@@ -675,7 +675,7 @@ class Boss {
       // 螺旋是连发：短时间内多次触发
       this.fireCd = 0.14;
       this.spiralBurst = (this.spiralBurst || 0) + 1;
-      if (this.spiralBurst >= (n ? 22 : 16)) { this.spiralBurst = 0; this.fireCd = this.cfg.fireEvery * this.cdMul * 1.4; }
+      if (this.spiralBurst >= (n ? 22 : 16)) { this.spiralBurst = 0; this.fireCd = this.cfg.fireEvery * this.cdMul * 1.4 * game.diff.cd; }
       SFX.enemyShoot();
       return;
     } else if (key === 'rain') {      // 随机弹雨
@@ -686,7 +686,7 @@ class Boss {
       }
     }
 
-    this.fireCd = this.cfg.fireEvery * this.cdMul * (n ? 0.8 : 1) * (p2 ? 0.85 : 1) * rand(0.9, 1.1);
+    this.fireCd = this.cfg.fireEvery * this.cdMul * (n ? 0.8 : 1) * (p2 ? 0.85 : 1) * rand(0.9, 1.1) * game.diff.cd;
     SFX.enemyShoot();
   }
 

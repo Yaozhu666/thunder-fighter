@@ -25,7 +25,7 @@
     el: {
       hud: $('hud'), score: $('score'), best: $('best'),
       lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
-      energy: $('hud-energy-fill'),
+      energy: $('hud-energy-fill'), diff: $('hud-diff'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -67,6 +67,10 @@
     setEnergy(v) {
       this.el.energy.style.width = v + '%';
       this.el.energy.style.boxShadow = v >= 100 ? '0 0 10px #ffe14a' : 'none';
+    },
+    setDiff(diff) {
+      this.el.diff.textContent = '· ' + diff.name + ' ·';
+      this.el.diff.style.color = diff.color;
     },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
@@ -173,6 +177,16 @@
   }
   $('btn-start').addEventListener('click', startGame);
   $('btn-retry').addEventListener('click', startGame);
+  // 难度选择（v9.0）
+  document.querySelectorAll('.btn-diff').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.btn-diff').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      game.setDifficulty(b.dataset.diff);
+    });
+  });
+  const savedDiffBtn = document.querySelector(`.btn-diff[data-diff="${game.diffKey}"]`);
+  if (savedDiffBtn) { document.querySelectorAll('.btn-diff').forEach(x => x.classList.remove('active')); savedDiffBtn.classList.add('active'); }
   $('btn-resume').addEventListener('click', () => { game.resume(); ui.showScreen('hud-only'); });
   $('btn-menu').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
   $('btn-quit').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
