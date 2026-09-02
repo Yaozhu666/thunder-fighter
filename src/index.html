@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>雷霆战鹰 · Thunder Hawk</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="480" height="720"></canvas>
+
+  <!-- HUD 层 -->
+  <div id="hud" class="hidden">
+    <div id="hud-score">SCORE <span id="score">0</span></div>
+    <div id="hud-best">BEST <span id="best">0</span></div>
+    <div id="hud-lives"></div>
+    <div id="hud-bombs"></div>
+  </div>
+  <div id="boss-bar" class="hidden">
+    <div id="boss-name">DREADNOUGHT</div>
+    <div id="boss-hp-wrap"><div id="boss-hp"></div></div>
+  </div>
+  <div id="wave-banner" class="hidden"></div>
+
+  <!-- 界面层 -->
+  <div id="screen-title" class="screen">
+    <div class="logo">
+      <div class="logo-sub">THUNDER HAWK</div>
+      <div class="logo-main">雷 鹰 战 机</div>
+    </div>
+    <div class="menu-hint">
+      <p>移动：鼠标 / WASD / 方向键 / 触摸拖动</p>
+      <p>射击：自动 &nbsp;|&nbsp; 炸弹：空格 / 双击</p>
+      <p>暂停：P 或 Esc</p>
+    </div>
+    <button id="btn-start" class="btn">开始出击</button>
+    <div class="title-best">最高纪录 <span id="best-title">0</span></div>
+  </div>
+
+  <div id="screen-pause" class="screen hidden">
+    <div class="screen-title">暂停</div>
+    <button id="btn-resume" class="btn">继续</button>
+    <button id="btn-quit" class="btn btn-ghost">返回主菜单</button>
+  </div>
+
+  <div id="screen-over" class="screen hidden">
+    <div class="screen-title danger">战斗坠毁</div>
+    <div class="over-stats">
+      <div><span>本局得分</span><b id="over-score">0</b></div>
+      <div><span>击落敌机</span><b id="over-kills">0</b></div>
+      <div><span>抵达波次</span><b id="over-wave">1</b></div>
+      <div id="over-newbest" class="hidden">★ 新纪录 ★</div>
+    </div>
+    <button id="btn-retry" class="btn">再次出击</button>
+    <button id="btn-menu" class="btn btn-ghost">返回主菜单</button>
+  </div>
+</div>
+<script src="js/audio.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

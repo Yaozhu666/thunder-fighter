@@ -1,0 +1,181 @@
+/* main.js —— 入口：缩放适配 / 输入 / UI / 主循环 */
+'use strict';
+
+(() => {
+  const canvas = document.getElementById('game');
+  const stage = document.getElementById('stage');
+
+  /* ---------- 画布缩放：保持 2:3 比例适配窗口 ---------- */
+  function resize() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const scale = Math.min(vw / W, vh / H);
+    const cw = Math.floor(W * scale), ch = Math.floor(H * scale);
+    stage.style.width = cw + 'px';
+    stage.style.height = ch + 'px';
+    // 高分屏清晰度
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    game.g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  /* ---------- UI 封装 ---------- */
+  const $ = id => document.getElementById(id);
+  const ui = {
+    el: {
+      hud: $('hud'), score: $('score'), best: $('best'),
+      lives: $('hud-lives'), bombs: $('hud-bombs'),
+      bossBar: $('boss-bar'), bossHp: $('boss-hp'),
+      banner: $('wave-banner'),
+      title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
+      bestTitle: $('best-title'),
+      overScore: $('over-score'), overKills: $('over-kills'), overWave: $('over-wave'),
+      newBest: $('over-newbest'),
+    },
+
+    showScreen(name) {
+      this.el.title.classList.toggle('hidden', name !== 'title');
+      this.el.pause.classList.toggle('hidden', name !== 'pause');
+      this.el.over.classList.toggle('hidden', name !== 'over');
+      this.el.hud.classList.toggle('hidden', name === 'title');
+    },
+    setScore(v) { this.el.score.textContent = v; },
+    setBest(v) { this.el.best.textContent = v; this.el.bestTitle.textContent = v; },
+    setLives(n) {
+      this.el.lives.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const d = document.createElement('span');
+        d.className = 'pip pip-life';
+        this.el.lives.appendChild(d);
+      }
+    },
+    setBombs(n) {
+      this.el.bombs.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const d = document.createElement('span');
+        d.className = 'pip pip-bomb';
+        this.el.bombs.appendChild(d);
+      }
+    },
+    showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
+    hideBossBar() { this.el.bossBar.classList.add('hidden'); },
+    setBossHp(frac) { this.el.bossHp.style.width = Math.max(0, frac * 100) + '%'; },
+    showWaveBanner(n, isBoss) {
+      const b = this.el.banner;
+      b.textContent = isBoss ? `第 ${n} 波 · BOSS` : `第 ${n} 波`;
+      b.classList.remove('hidden');
+      // 重启动画
+      b.style.animation = 'none';
+      void b.offsetWidth;
+      b.style.animation = 'banner-in .5s ease-out';
+      clearTimeout(this._bannerT);
+      this._bannerT = setTimeout(() => b.classList.add('hidden'), 1400);
+    },
+    floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
+    loadBest() { return parseInt(localStorage.getItem('th_best') || '0', 10) || 0; },
+    saveBest(v) { try { localStorage.setItem('th_best', String(v)); } catch (e) { /* file:// 某些环境禁用 */ } },
+    showGameOver(score, kills, wave, isBest) {
+      this.el.overScore.textContent = score;
+      this.el.overKills.textContent = kills;
+      this.el.overWave.textContent = wave;
+      this.el.newBest.classList.toggle('hidden', !isBest);
+      this.setBest(game.best);
+      this.showScreen('over');
+    },
+  };
+
+  /* ---------- 游戏实例 ---------- */
+  const game = new Game(canvas, ui);
+  window.game = game; // 调试用
+  game.best = ui.loadBest();
+  ui.setBest(game.best);
+
+  /* ---------- 键盘 ---------- */
+  const KEYMAP = {
+    ArrowLeft: 'left', KeyA: 'left',
+    ArrowRight: 'right', KeyD: 'right',
+    ArrowUp: 'up', KeyW: 'up',
+    ArrowDown: 'down', KeyS: 'down',
+  };
+  window.addEventListener('keydown', e => {
+    if (KEYMAP[e.code]) { game.input[KEYMAP[e.code]] = true; game.input.pointerActive = false; e.preventDefault(); }
+    if (e.code === 'Space') { game.input.bombRequested = true; e.preventDefault(); }
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+      if (game.state === 'playing') { game.pause(); ui.showScreen('pause'); }
+      else if (game.state === 'paused') { game.resume(); ui.showScreen('hud-only'); }
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (KEYMAP[e.code]) game.input[KEYMAP[e.code]] = false;
+  });
+
+  /* ---------- 鼠标 ---------- */
+  function canvasPos(cx, cy) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (cx - rect.left) / rect.width * W,
+      y: (cy - rect.top) / rect.height * H,
+    };
+  }
+  canvas.addEventListener('mousemove', e => {
+    const p = canvasPos(e.clientX, e.clientY);
+    game.input.pointerActive = true;
+    game.input.px = p.x; game.input.py = p.y;
+  });
+
+  /* ---------- 触摸 ---------- */
+  let lastTapT = 0;
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    SFX.unlock();
+    const t = e.touches[0];
+    const p = canvasPos(t.clientX, t.clientY);
+    game.input.pointerActive = true;
+    game.input.px = p.x; game.input.py = p.y;
+    // 双击放炸弹
+    const now = performance.now();
+    if (now - lastTapT < 280) game.input.bombRequested = true;
+    lastTapT = now;
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const p = canvasPos(t.clientX, t.clientY);
+    game.input.px = p.x; game.input.py = p.y;
+  }, { passive: false });
+  canvas.addEventListener('touchend', e => { e.preventDefault(); }, { passive: false });
+
+  /* ---------- 按钮 ---------- */
+  function startGame() {
+    SFX.unlock();
+    game.start();
+    ui.showScreen('hud-only');
+  }
+  $('btn-start').addEventListener('click', startGame);
+  $('btn-retry').addEventListener('click', startGame);
+  $('btn-resume').addEventListener('click', () => { game.resume(); ui.showScreen('hud-only'); });
+  $('btn-menu').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
+  $('btn-quit').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
+
+  /* ---------- 主循环 ---------- */
+  let lastT = performance.now();
+  function loop(now) {
+    let dt = (now - lastT) / 1000;
+    lastT = now;
+    dt = Math.min(dt, 0.05); // 切后台回来防跳帧
+
+    if (game.input.bombRequested) {
+      game.input.bombRequested = false;
+      game.useBomb();
+    }
+
+    game.update(dt);
+    game.render();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  ui.showScreen('title');
+  requestAnimationFrame(loop);
+})();
