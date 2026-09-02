@@ -30,6 +30,7 @@
       achCount: $('ach-count'), overCombo: $('over-combo'), overAch: $('over-ach'),
       pauseScore: $('pause-score'), pauseStage: $('pause-stage'), pauseCombo: $('pause-combo'),
       btnMute: $('btn-mute'), btnShake: $('btn-shake'),
+      overTime: $('over-time'), titleStats: $('title-stats'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -129,16 +130,26 @@
     floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
     loadBest() { return parseInt(localStorage.getItem('th_best') || '0', 10) || 0; },
     saveBest(v) { try { localStorage.setItem('th_best', String(v)); } catch (e) { /* file:// 某些环境禁用 */ } },
-    showGameOver(score, kills, stage, isBest, maxCombo, newAch) {
+    fmtTime(t) {
+      const m = Math.floor(t / 60), s = Math.floor(t % 60);
+      return m + '分' + (s < 10 ? '0' : '') + s + '秒';
+    },
+    showGameOver(score, kills, stage, isBest, maxCombo, newAch, playT, stats) {
       this.el.overScore.textContent = score;
       this.el.overKills.textContent = kills;
       this.el.overWave.textContent = stage;
       this.el.overCombo.textContent = '×' + maxCombo;
       this.el.overAch.textContent = newAch > 0 ? `+${newAch} 成就` : '—';
+      this.el.overTime.textContent = this.fmtTime(playT || 0);
       this.el.newBest.classList.toggle('hidden', !isBest);
       document.getElementById('stage').classList.remove('low-hp');
       this.setBest(game.best);
+      this.setTitleStats(stats);
       this.showScreen('over');
+    },
+    setTitleStats(st) {
+      if (!st) return;
+      this.el.titleStats.textContent = `累计出战 ${st.games} 局 · 击落 ${st.kills} · 最远第 ${st.bestStage} 关`;
     },
   };
 
@@ -148,6 +159,7 @@
   game.best = ui.loadBest();
   ui.setBest(game.best);
   ui.setAchCount(game._ach.length);
+  ui.setTitleStats(game.loadStats());
 
   /* ---------- 键盘 ---------- */
   const KEYMAP = {

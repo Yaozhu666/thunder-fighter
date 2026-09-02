@@ -83,6 +83,7 @@ class Game {
     this.shakeOn = true;           // 屏幕震动开关（v11.3，持久化）
     try { this.shakeOn = localStorage.getItem('th_shake') !== '0'; } catch (e) {}
     this.bombRing = 0;             // 炸弹冲击波（v11.3）
+    this.playT = 0;                // 本局游玩时长秒（v11.4）
   }
 
   /* 暗角贴图：预渲染一次，避免每帧径向渐变（v11.2） */
@@ -138,6 +139,7 @@ class Game {
     this.bossWarnT = 0;
     this.beam = null;
     this.miniBoss = null;
+    this.playT = 0;
     this.combo = 0; this.comboT = 0; this.maxCombo = 0;
     this.bossKills = 0;
     this.newAch = [];
@@ -193,7 +195,19 @@ class Game {
     SFX.gameover();
     const isBest = this.score > this.best;
     if (isBest) { this.best = this.score; this.ui.saveBest(this.best); }
-    this.ui.showGameOver(this.score, this.kills, this.stage, isBest, this.maxCombo, this.newAch.length);
+    // 累计战绩（v11.4）
+    const st = this.loadStats();
+    st.games += 1;
+    st.kills += this.kills;
+    st.bestStage = Math.max(st.bestStage || 1, this.stage);
+    st.bestCombo = Math.max(st.bestCombo || 0, this.maxCombo);
+    try { localStorage.setItem('th_stats', JSON.stringify(st)); } catch (e) {}
+    this.ui.showGameOver(this.score, this.kills, this.stage, isBest, this.maxCombo, this.newAch.length, this.playT, st);
+  }
+
+  loadStats() {
+    try { return JSON.parse(localStorage.getItem('th_stats') || '{"games":0,"kills":0,"bestStage":1,"bestCombo":0}'); }
+    catch (e) { return { games: 0, kills: 0, bestStage: 1, bestCombo: 0 }; }
   }
 
   /* ---------- 生成接口 ---------- */
@@ -481,6 +495,8 @@ class Game {
     this.floats = this.floats.filter(f => !f.dead);
 
     if (this.state !== 'playing') return;
+
+    this.playT += dt;   // v11.4 仅计游玩时间
 
     const p = this.player;
     p.update(dt, this.input, this);
