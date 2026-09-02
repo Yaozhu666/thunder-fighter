@@ -25,6 +25,7 @@
     el: {
       hud: $('hud'), score: $('score'), best: $('best'),
       lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
+      energy: $('hud-energy-fill'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -62,6 +63,10 @@
       this.el.weapon.textContent = `${w.name} Lv${lv}`;
       this.el.weapon.style.color = w.color;
       this.el.weapon.style.textShadow = `0 0 8px ${w.color}66`;
+    },
+    setEnergy(v) {
+      this.el.energy.style.width = v + '%';
+      this.el.energy.style.boxShadow = v >= 100 ? '0 0 10px #ffe14a' : 'none';
     },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
@@ -109,6 +114,7 @@
   window.addEventListener('keydown', e => {
     if (KEYMAP[e.code]) { game.input[KEYMAP[e.code]] = true; game.input.pointerActive = false; e.preventDefault(); }
     if (e.code === 'Space') { game.input.bombRequested = true; e.preventDefault(); }
+    if (e.code === 'KeyE') { game.input.ultRequested = true; e.preventDefault(); }
     if (e.code === 'KeyP' || e.code === 'Escape') {
       if (game.state === 'playing') { game.pause(); ui.showScreen('pause'); }
       else if (game.state === 'paused') { game.resume(); ui.showScreen('hud-only'); }
@@ -134,6 +140,7 @@
 
   /* ---------- 触摸 ---------- */
   let lastTapT = 0;
+  let holdTimer = 0;
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     SFX.unlock();
@@ -145,14 +152,18 @@
     const now = performance.now();
     if (now - lastTapT < 280) game.input.bombRequested = true;
     lastTapT = now;
+    // 长按 0.45s 释放必杀（v5.0，移动即取消）
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { game.input.ultRequested = true; }, 450);
   }, { passive: false });
   canvas.addEventListener('touchmove', e => {
     e.preventDefault();
+    clearTimeout(holdTimer);
     const t = e.touches[0];
     const p = canvasPos(t.clientX, t.clientY);
     game.input.px = p.x; game.input.py = p.y;
   }, { passive: false });
-  canvas.addEventListener('touchend', e => { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchend', e => { e.preventDefault(); clearTimeout(holdTimer); }, { passive: false });
 
   /* ---------- 按钮 ---------- */
   function startGame() {
@@ -180,6 +191,10 @@
     if (game.input.bombRequested) {
       game.input.bombRequested = false;
       game.useBomb();
+    }
+    if (game.input.ultRequested) {
+      game.input.ultRequested = false;
+      game.tryUltimate();
     }
 
     game.update(dt);

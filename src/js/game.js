@@ -31,6 +31,7 @@ class Game {
     this.spawnTimer = 0;
     this.enemyScale = 1;           // 随关卡增强的系数
     this.bossWarnT = 0;
+    this.beam = null;              // 必杀激光状态（v5.0）
 
     this.shake = 0;
     this.flashWhite = 0;
@@ -83,10 +84,12 @@ class Game {
     this.flashWhite = 0;
     this.bombFlash = 0;
     this.bossWarnT = 0;
+    this.beam = null;
     this.ui.setScore(0);
     this.ui.setLives(this.player.lives);
     this.ui.setBombs(this.player.bombs);
     this.ui.setWeapon(this.player.weapon, this.player.power);
+    this.ui.setEnergy(0);
     this.ui.hideBossBar();
   }
 
@@ -227,10 +230,26 @@ class Game {
     if (this.bossWarnT > 0) this.bossWarnT -= dt;
   }
 
+  /* ---------- 必杀（v5.0）：雷霆风暴 ---------- */
+  tryUltimate() {
+    const p = this.player;
+    if (this.state !== 'playing' || p.energy < 100 || this.beam) return false;
+    p.energy = 0;
+    this.ui.setEnergy(0);
+    this.beam = { t: 1.8 };
+    p.invul = Math.max(p.invul, 2.2);
+    this.shake = Math.max(this.shake, 10);
+    SFX.bomb();
+    this.ui.floatScore(p.x, p.y - 46, '雷霆风暴！', '#ffe14a');
+    return true;
+  }
+
   /* ---------- 击杀与掉落 ---------- */
   onEnemyKilled(enemy) {
     this.kills++;
     this.addScore(enemy.score);
+    this.player.addEnergy(enemy.type === 'elite' ? 12 : 4);   // v5.0
+    this.ui.setEnergy(this.player.energy);
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
@@ -349,6 +368,31 @@ class Game {
         this.ui.showWaveBanner(`第 ${this.stage - 1} 关 突破！`, false, 1600);
         this.spawnQueue = [];
       }
+    }
+
+    // 必杀激光：竖向穿透，持续伤害 + 清弹（v5.0）
+    if (this.beam) {
+      this.beam.t -= dt;
+      const bx = p.x;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        if (Math.abs(e.x - bx) < 26 + e.r) {
+          e.hp -= 60 * dt;
+          this.spawnParticles(e.x, e.y, 1, '#ffe14a', 2, 0.25);
+          if (e.hp <= 0) { e.dead = true; this.onEnemyKilled(e); }
+        }
+      }
+      if (this.boss && this.boss.phase > 0 && Math.abs(this.boss.x - bx) < 26 + this.boss.r) {
+        this.boss.hp -= 45 * dt;
+        if (this.boss.hp <= 0) this.boss.dead = true;
+      }
+      for (const b of this.bullets) {
+        if (b.owner === Bullet.enemy && Math.abs(b.x - bx) < 26) {
+          b.dead = true;
+          this.spawnParticles(b.x, b.y, 2, '#ffe14a', 2, 0.25);
+        }
+      }
+      if (this.beam.t <= 0) this.beam = null;
     }
 
     // 道具
@@ -515,6 +559,20 @@ class Game {
     for (const b of this.bullets) b.draw(g);
     for (const pt of this.particles) pt.draw(g);
     for (const f of this.floats) f.draw(g);
+
+    // 必杀激光（v5.0）
+    if (this.beam && this.player.alive) {
+      const w = 22 + Math.sin(this.time * 40) * 4;
+      const grd = g.createLinearGradient(0, 0, 0, H);
+      grd.addColorStop(0, 'rgba(255,240,150,0)');
+      grd.addColorStop(0.25, 'rgba(255,225,74,.75)');
+      grd.addColorStop(1, 'rgba(255,240,150,.9)');
+      g.fillStyle = grd;
+      g.shadowColor = '#ffe14a';
+      g.shadowBlur = 24;
+      g.fillRect(this.player.x - w / 2, 0, w, this.player.y - 20);
+      g.shadowBlur = 0;
+    }
 
     // 炸弹白闪
     if (this.bombFlash > 0) {

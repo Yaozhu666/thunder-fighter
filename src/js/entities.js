@@ -34,6 +34,7 @@ class Player {
     this.weapon = 'V';        // 武器种类
     this.drones = 0;          // 僚机数量 0~2（v4.0）
     this.dr = [];             // 僚机实例 {x,y,cd}
+    this.energy = 0;          // 必杀能量 0~100（v5.0）
     this.shield = 0;          // 护盾剩余次数
     this.invul = 0;           // 无敌剩余秒数
     this.fireCd = 0;          // 开火冷却
@@ -132,6 +133,10 @@ class Player {
                            game.spawnBullet(B, x + 24, y + 12, 230, -520, 3, '#6ef3ff'); }
     }
     SFX.shoot();
+  }
+
+  addEnergy(v) {
+    this.energy = Math.min(100, this.energy + v);
   }
 
   addDrone() {
