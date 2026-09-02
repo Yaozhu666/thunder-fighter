@@ -565,6 +565,8 @@ const BOSS_TYPES = [
   { name: '泰坦 TITAN',         color: '#d4b13b', core: '#fff0a0', scale: 1.45, hpMul: 2.0, speed: 0.40, fireEvery: 1.50, patterns: ['ring', 'fan', 'spiral'] },
   { name: '漩涡 VORTEX',        color: '#3b6ae2', core: '#7ab0ff', scale: 1.00, hpMul: 1.3, speed: 0.90, fireEvery: 1.00, patterns: ['spiral', 'ring', 'spiral'] },
   { name: '蚀日 ECLIPSE',       color: '#45202e', core: '#ff3040', scale: 1.30, hpMul: 2.4, speed: 1.10, fireEvery: 0.95, patterns: ['fan', 'ring', 'spiral', 'aimed'], aura: true },
+  { name: '天罚 WRATH',        color: '#c43b6a', core: '#ff9ab0', scale: 1.05, hpMul: 1.35, speed: 0.85, fireEvery: 0.90, patterns: ['aimed', 'rain', 'fan'] },
+  { name: '蜂巢 HIVE',         color: '#8a9a2b', core: '#e2ff7a', scale: 1.15, hpMul: 1.50, speed: 0.50, fireEvery: 1.10, patterns: ['ring', 'spiral', 'rain'], spawns: true },
 ];
 
 class Boss {
@@ -606,6 +608,13 @@ class Boss {
       SFX.bossWarn();
     }
 
+    // 二阶段（v7.0）：血量 <55% 换形态，弹幕加量提速
+    if (!this.phase2 && this.hp < this.maxHp * 0.55) {
+      this.phase2 = true;
+      game.spawnParticles(this.x, this.y, 24, '#ff9040', 3.5, 0.6);
+      SFX.bossWarn();
+    }
+
     // 召唤小蜂（蜂后/蜂巢，v6.0/v7.0）
     if (this.cfg.spawns) {
       this.spawnCd = (this.spawnCd === undefined ? 2.5 : this.spawnCd) - dt;
@@ -628,18 +637,19 @@ class Boss {
     this.patternIdx++;
     const p = game.player;
     const E = Bullet.enemy;
-    const sp = this.bSpeed;
+    const sp = this.bSpeed * (this.phase2 ? 1.15 : 1);   // v7.0 二阶段弹速 +15%
+    const p2 = this.phase2;
     const n = this.enraged;           // 狂暴加量
 
     if (key === 'fan') {              // 瞄准扇形
       const ang = Math.atan2(p.y - this.y, p.x - this.x);
-      const cnt = n ? 11 : 9;
+      const cnt = (n ? 11 : 9) + (p2 ? 2 : 0);
       for (let i = 0; i < cnt; i++) {
         const a = ang + (i - (cnt - 1) / 2) * 0.17;
         game.spawnBullet(E, this.x, this.y + 30, Math.cos(a) * 270 * sp, Math.sin(a) * 270 * sp, 4.6, '#ff5a5a');
       }
     } else if (key === 'ring') {      // 全周环形
-      const cnt = n ? 26 : 18;
+      const cnt = (n ? 26 : 18) + (p2 ? 5 : 0);
       const off = Math.random() * Math.PI;
       for (let i = 0; i < cnt; i++) {
         const a = off + i / cnt * Math.PI * 2;
@@ -673,7 +683,7 @@ class Boss {
       }
     }
 
-    this.fireCd = this.cfg.fireEvery * this.cdMul * (n ? 0.8 : 1) * rand(0.9, 1.1);
+    this.fireCd = this.cfg.fireEvery * this.cdMul * (n ? 0.8 : 1) * (p2 ? 0.85 : 1) * rand(0.9, 1.1);
     SFX.enemyShoot();
   }
 
@@ -697,6 +707,19 @@ class Boss {
       g.beginPath();
       g.arc(0, 0, 62, 0, Math.PI * 2);
       g.stroke();
+    }
+
+    // 二阶段尖刺（v7.0）
+    if (this.phase2) {
+      g.strokeStyle = `rgba(255,90,40,${0.55 + Math.sin(time * 9) * 0.25})`;
+      g.lineWidth = 2.5;
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2 + time * 1.5;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * 52, Math.sin(a) * 52);
+        g.lineTo(Math.cos(a) * 66, Math.sin(a) * 66);
+        g.stroke();
+      }
     }
 
     // 巨型母舰
