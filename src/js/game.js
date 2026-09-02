@@ -155,10 +155,10 @@ class Game {
       SFX.wave();
     }
 
-    // 常规波：按预算生成编队（关卡与关内波次双成长，节奏更快）
-    const budget = 8 + this.stage * 3.2 + this.waveInStage * 2.5;
+    // 常规波：按预算生成编队（v2.0 每关 2 波：总量少 1/3，但单波密度/敌速与 v1 持平）
+    const budget = 7 + this.stage * 3 + this.waveInStage * 2;
     const q = [];
-    let t = 0.3;
+    let t = 0.4;
     let spent = 0;
     while (spent < budget) {
       const roll = Math.random();
@@ -169,11 +169,11 @@ class Game {
       // 编队：小蜂 3 连
       if (type === 'bee' && Math.random() < 0.6) {
         const x = rand(50, W - 50);
-        for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.22 });
-        spent += cost * 3; t += 0.6;
+        for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.28 });
+        spent += cost * 3; t += 0.9;
       } else {
         q.push({ type, x: rand(40, W - 40), t });
-        spent += cost; t += rand(0.25, 0.55);
+        spent += cost; t += rand(0.4, 0.8);
       }
     }
     this.spawnQueue = q;

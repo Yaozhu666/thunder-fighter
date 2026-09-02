@@ -225,16 +225,16 @@ class Enemy {
     this.flash = 0;
 
     if (this.type === 'bee') {
-      this.vy = rand(170, 235) * Math.min(1.7, waveScale);
+      this.vy = rand(150, 210) * Math.min(1.6, waveScale);
       this.amp = rand(30, 70);
       this.freq = rand(2, 4);
     } else if (type === 'wing') {
-      this.vy = rand(105, 150) * Math.min(1.7, waveScale);
+      this.vy = rand(90, 130) * Math.min(1.5, waveScale);
       this.vx = x < W / 2 ? rand(30, 70) : -rand(30, 70);
     } else if (type === 'kamika') {
       this.vy = 60;
     } else { // heavy
-      this.vy = rand(52, 74);
+      this.vy = rand(46, 64);
       this.vx = 0;
     }
   }
