@@ -385,7 +385,7 @@ class Boss {
   constructor(cfg, level) {
     this.cfg = cfg;
     this.level = level;
-    this.x = W / 2; this.y = -140;
+    this.x = W / 2; this.y = -120;
     this.r = 46 * cfg.scale;
     const hp = Math.round((300 + level * 100) * cfg.hpMul);
     this.hp = hp; this.maxHp = hp;
@@ -408,7 +408,7 @@ class Boss {
     if (this.flash > 0) this.flash -= dt;
 
     if (this.phase === 0) {           // 进场
-      this.y += 60 * dt;
+      this.y += 130 * dt;
       if (this.y >= 110) { this.y = 110; this.phase = 1; }
       return;
     }
