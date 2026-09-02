@@ -215,13 +215,13 @@ class Game {
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
-    // 掉落概率（v2.0：P 下调至 12%，前期不再轻松满级）
+    // 掉落概率（v2.0.1：P 回调至 18%——Boss 重置火力后需要足够 P 补级）
     const roll = Math.random();
     let kind = null;
     if (roll < 0.045) kind = 'H';
     else if (roll < 0.13) kind = 'B';
-    else if (roll < 0.25) kind = 'P';
-    else if (roll < 0.33) kind = 'S';
+    else if (roll < 0.31) kind = 'P';
+    else if (roll < 0.39) kind = 'S';
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
 
