@@ -32,6 +32,8 @@ class Player {
     this.bombs = 2;
     this.power = 1;           // 火力等级 1~5（各武器通用）
     this.weapon = 'V';        // 武器种类
+    this.drones = 0;          // 僚机数量 0~2（v4.0）
+    this.dr = [];             // 僚机实例 {x,y,cd}
     this.shield = 0;          // 护盾剩余次数
     this.invul = 0;           // 无敌剩余秒数
     this.fireCd = 0;          // 开火冷却
@@ -62,6 +64,19 @@ class Player {
     this.y = clamp(this.y, 40, H - 30);
 
     if (this.invul > 0) this.invul -= dt;
+
+    // 僚机：跟随 + 自动射击（v4.0）
+    for (let i = 0; i < this.dr.length; i++) {
+      const d = this.dr[i];
+      const tx = this.x + (i === 0 ? -36 : 36), ty = this.y + 8;
+      d.x += (tx - d.x) * Math.min(1, dt * 8);
+      d.y += (ty - d.y) * Math.min(1, dt * 8);
+      d.cd -= dt;
+      if (d.cd <= 0) {
+        game.spawnBullet(Bullet.player, d.x, d.y - 8, 0, -520, 2.6, '#7affd4');
+        d.cd = 0.24;
+      }
+    }
 
     // 自动开火（冷却按武器区分：导弹节奏慢但自动索敌）
     this.fireCd -= dt;
@@ -119,6 +134,20 @@ class Player {
     SFX.shoot();
   }
 
+  addDrone() {
+    if (this.drones >= 2) return false;
+    this.drones++;
+    this.dr.push({ x: this.x, y: this.y, cd: 0.3 });
+    return true;
+  }
+
+  loseDrone() {
+    if (this.drones <= 0) return false;
+    this.drones--;
+    this.dr.pop();
+    return true;
+  }
+
   onHit(game) {
     if (this.invul > 0) return false;
     if (this.shield > 0) {
@@ -132,6 +161,20 @@ class Player {
   }
 
   draw(g, time) {
+    // 僚机（绝对坐标，v4.0）
+    for (const d of this.dr) {
+      g.save();
+      g.translate(d.x, d.y);
+      g.fillStyle = '#7affd4';
+      g.shadowColor = '#7affd4';
+      g.shadowBlur = 8;
+      g.beginPath();
+      g.moveTo(0, -8); g.lineTo(-6, 6); g.lineTo(0, 3); g.lineTo(6, 6);
+      g.closePath(); g.fill();
+      g.shadowBlur = 0;
+      g.restore();
+    }
+
     g.save();
     g.translate(this.x, this.y);
     g.rotate(this.tilt);
@@ -652,7 +695,7 @@ class Boss {
 }
 
 /* ===================== 道具 ===================== */
-const POWERUP_KINDS = ['P', 'S', 'B', 'H', 'V', 'W', 'M'];
+const POWERUP_KINDS = ['P', 'S', 'B', 'H', 'V', 'W', 'M', 'O'];
 
 class PowerUp {
   constructor(x, y, kind) {
@@ -670,7 +713,7 @@ class PowerUp {
     if (this.y > H + 30) this.dead = true;
   }
   draw(g, time) {
-    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e', V: '#e8f6ff', W: '#f4ff4a', M: '#c44aff' };
+    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e', V: '#e8f6ff', W: '#f4ff4a', M: '#c44aff', O: '#7affd4' };
     const c = colors[this.kind];
     g.save();
     g.translate(this.x, this.y);

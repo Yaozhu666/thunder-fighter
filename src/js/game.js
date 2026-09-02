@@ -247,6 +247,7 @@ class Game {
       else if (roll < 0.370) kind = 'W';   // 3.5%
       else if (roll < 0.405) kind = 'M';   // 3.5%
       else if (roll < 0.430) kind = 'V';   // 2.5%
+      else if (roll < 0.460) kind = 'O';   // 3%（v4.0 僚机）
     }
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
@@ -332,10 +333,12 @@ class Game {
         this.powerups.push(new PowerUp(this.boss.x + 24, this.boss.y, Math.random() < 0.5 ? 'B' : 'H'));
         this.boss = null;
         this.ui.hideBossBar();
-        // v2.0：通过 Boss 关武器重置（v2.1：种类一并回归火神炮，生命/护盾/炸弹保留）
-        if (this.player.power > 1 || this.player.weapon !== 'V') {
+        // v2.0：通过 Boss 关武器重置（v2.1：种类回归火神炮；v4.0：僚机一并清空），生命/护盾/炸弹保留
+        if (this.player.power > 1 || this.player.weapon !== 'V' || this.player.drones > 0) {
           this.player.power = 1;
           this.player.weapon = 'V';
+          this.player.drones = 0;
+          this.player.dr.length = 0;
           this.ui.floatScore(this.player.x, this.player.y - 40, '武器重置！', '#ff9a3c');
           this.ui.setWeapon('V', 1);
         }
@@ -425,6 +428,10 @@ class Game {
         this.ui.floatScore(p.x, p.y - 34, `切换 ${w.name}!`, w.color);
       }
       this.ui.setWeapon(p.weapon, p.power);
+    } else if (kind === 'O') {
+      // v4.0 僚机：最多 2 架
+      if (p.addDrone()) this.ui.floatScore(p.x, p.y - 34, '僚机加入!', '#7affd4');
+      else { this.addScore(200); this.ui.floatScore(p.x, p.y - 34, '+200', '#7affd4'); }
     } else if (kind === 'S') {
       p.shield = Math.min(3, p.shield + 1);
       this.ui.floatScore(p.x, p.y - 34, '护盾!', '#4ac8ff');
@@ -451,6 +458,7 @@ class Game {
     } else {
       p.power = Math.max(1, p.power - 1);   // 掉一级火力
       this.ui.setWeapon(p.weapon, p.power);
+      if (p.loseDrone()) this.ui.floatScore(p.x, p.y - 58, '僚机损毁', '#ff9a3c');  // v4.0
       p.x = W / 2; p.y = H - 120;
       p.invul = 2.4;
     }
