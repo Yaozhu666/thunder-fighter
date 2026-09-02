@@ -25,7 +25,8 @@
     <div id="boss-name">DREADNOUGHT</div>
     <div id="boss-hp-wrap"><div id="boss-hp"></div></div>
   </div>
-  <div id="wave-banner" class="hidden"></div>
+    <div id="wave-banner" class="hidden"></div>
+    <div id="hud-combo"></div>
 
   <!-- 界面层 -->
   <div id="screen-title" class="screen">
@@ -46,6 +47,7 @@
     </div>
     <button id="btn-start" class="btn">开始出击</button>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>
+    <div class="title-ach">★ 成就 <span id="ach-count">0</span>/8</div>
   </div>
 
   <div id="screen-pause" class="screen hidden">
@@ -60,6 +62,8 @@
       <div><span>本局得分</span><b id="over-score">0</b></div>
       <div><span>击落敌机</span><b id="over-kills">0</b></div>
       <div><span>抵达关卡</span><b id="over-wave">1</b></div>
+      <div><span>最高连击</span><b id="over-combo">×0</b></div>
+      <div><span>本局成就</span><b id="over-ach">—</b></div>
       <div id="over-newbest" class="hidden">★ 新纪录 ★</div>
     </div>
     <button id="btn-retry" class="btn">再次出击</button>

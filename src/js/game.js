@@ -8,6 +8,19 @@ const DIFFS = {
   hard:   { name: '炼狱', color: '#ff5a5a', bSp: 1.18, cd: 0.78, dropMul: 0.75, scoreMul: 1.60, hpMul: 1.25 },
 };
 
+/* 成就（v10.0） */
+const ACHS = [
+  { id: 'elite1',    name: '精英猎手',   desc: '击落一架精英机' },
+  { id: 'drone2',    name: '编队司令',   desc: '同时拥有 2 架僚机' },
+  { id: 'beam1',     name: '雷霆初鸣',   desc: '首次释放必杀' },
+  { id: 'stage10',   name: '深入敌阵',   desc: '抵达第 10 关' },
+  { id: 'boss5',     name: '舰队终结者', desc: '单局击落 5 个 Boss' },
+  { id: 'combo25',   name: '连击大师',   desc: '单局连击达到 25' },
+  { id: 'score100k', name: '十万大名',   desc: '单局得分突破 10 万' },
+  { id: 'prime',     name: '蚀日终结者', desc: '击落蚀日·真形态' },
+];
+const ACH_KEY = 'th_ach';
+
 class Game {
   constructor(canvas, ui) {
     this.canvas = canvas;
@@ -19,6 +32,13 @@ class Game {
     this.score = 0;
     this.kills = 0;
     this.best = 0;
+
+    this.combo = 0;                // 连击（v10.0）
+    this.comboT = 0;               // 连击窗口
+    this.maxCombo = 0;
+    this.bossKills = 0;
+    this._ach = this.loadAch();
+    this.newAch = [];
 
     let savedDiff = 'normal';
     try { savedDiff = localStorage.getItem('th_diff') || 'normal'; } catch (e) {}
@@ -99,12 +119,16 @@ class Game {
     this.bossWarnT = 0;
     this.beam = null;
     this.miniBoss = null;
+    this.combo = 0; this.comboT = 0; this.maxCombo = 0;
+    this.bossKills = 0;
+    this.newAch = [];
     this.ui.setScore(0);
     this.ui.setLives(this.player.lives);
     this.ui.setBombs(this.player.bombs);
     this.ui.setWeapon(this.player.weapon, this.player.power);
     this.ui.setEnergy(0);
     this.ui.setDiff(this.diff);
+    this.ui.setCombo(0);
     this.ui.hideBossBar();
   }
 
@@ -126,12 +150,29 @@ class Game {
     this.ui.setDiff(this.diff);
   }
 
+  /* ---------- 成就（v10.0） ---------- */
+  loadAch() {
+    try { return JSON.parse(localStorage.getItem(ACH_KEY) || '[]'); } catch (e) { return []; }
+  }
+  hasAch(id) { return this._ach.indexOf(id) >= 0; }
+  unlock(id) {
+    if (this.hasAch(id)) return;
+    this._ach.push(id);
+    try { localStorage.setItem(ACH_KEY, JSON.stringify(this._ach)); } catch (e) {}
+    const a = ACHS.find(x => x.id === id);
+    if (a) {
+      this.newAch.push(id);
+      this.ui.showWaveBanner(`★ 成就解锁：${a.name}`, false, 2200);
+      this.ui.setAchCount(this._ach.length);
+    }
+  }
+
   gameOver() {
     this.state = 'gameover';
     SFX.gameover();
     const isBest = this.score > this.best;
     if (isBest) { this.best = this.score; this.ui.saveBest(this.best); }
-    this.ui.showGameOver(this.score, this.kills, this.stage, isBest);
+    this.ui.showGameOver(this.score, this.kills, this.stage, isBest, this.maxCombo, this.newAch.length);
   }
 
   /* ---------- 生成接口 ---------- */
@@ -182,6 +223,7 @@ class Game {
   /* ---------- 关卡系统 v2.0：常规关 2 个快节奏波；每 5 关一个独立 Boss 关 ---------- */
   nextWave() {
     this.wave++;
+    if (this.stage >= 10) this.unlock('stage10');   // v10.0
     // 常规关最多 2 波，走完自动进入下一关
     if (this.waveInStage > 2) { this.waveInStage = 1; this.stage++; }
     else { this.waveInStage++; }
@@ -274,8 +316,13 @@ class Game {
         if (item.type === 'boss') {
           // 每 5 关一个 Boss，按 Boss 序号（第几个 Boss）取配置与强化
           const bossIdx = Math.max(1, Math.round(this.stage / 5));
-          const cfg = BOSS_TYPES[(bossIdx - 1) % BOSS_TYPES.length];
+          let cfg = BOSS_TYPES[(bossIdx - 1) % BOSS_TYPES.length];
+          // 第 25 关：蚀日·真形态（v10.0 终极 Boss）
+          if (bossIdx === 5 && this.stage === 25) {
+            cfg = { name: '蚀日·真形态 PRIME', color: '#2a0a14', core: '#ff3040', scale: 1.6, hpMul: 3.2, speed: 1.0, fireEvery: 0.85, patterns: ['fan', 'ring', 'spiral', 'rain', 'aimed'], aura: true };
+          }
           this.boss = new Boss(cfg, bossIdx);
+          this.boss.isPrime = (this.stage === 25);
           this.ui.setBossName(cfg.name);
           this.ui.showBossBar();
         } else if (item.type === 'mini') {
@@ -308,15 +355,24 @@ class Game {
     this.shake = Math.max(this.shake, 10);
     SFX.bomb();
     this.ui.floatScore(p.x, p.y - 46, '雷霆风暴！', '#ffe14a');
+    this.unlock('beam1');
     return true;
   }
 
   /* ---------- 击杀与掉落 ---------- */
   onEnemyKilled(enemy) {
     this.kills++;
+    // 连击（v10.0）：2 秒窗口内持续击杀
+    this.combo++;
+    this.comboT = 2;
+    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+    if (this.maxCombo >= 25) this.unlock('combo25');
+    if (this.combo >= 5) this.addScore(this.combo * 2);   // 连击加分
+    this.ui.setCombo(this.combo);
     this.addScore(enemy.score);
     this.player.addEnergy(enemy.type === 'elite' ? 12 : 4);   // v5.0
     this.ui.setEnergy(this.player.energy);
+    if (enemy.type === 'elite') this.unlock('elite1');
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
@@ -343,6 +399,7 @@ class Game {
   addScore(n) {
     this.score += Math.round(n * this.diff.scoreMul);   // v9.0 难度得分倍率
     this.ui.setScore(this.score);
+    if (this.score >= 100000) this.unlock('score100k');
   }
 
   useBomb() {
@@ -375,6 +432,10 @@ class Game {
     }
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 40);
     if (this.bombFlash > 0) this.bombFlash -= dt;
+    if (this.comboT > 0) {           // v10.0 连击窗口
+      this.comboT -= dt;
+      if (this.comboT <= 0) { this.combo = 0; this.ui.setCombo(0); }
+    }
 
     // 粒子与浮字任何时候都更新（爆炸余韵在 gameover 后继续飘）
     for (const pt of this.particles) pt.update(dt);
@@ -412,6 +473,9 @@ class Game {
         // —— 关卡通关结算 ——
         const bonus = 500 * this.stage;
         this.addScore(bonus);
+        this.bossKills++;
+        if (this.bossKills >= 5) this.unlock('boss5');
+        if (this.boss.isPrime) { this.addScore(2000); this.unlock('prime'); }   // v10.0
         this.explode(this.boss.x, this.boss.y, true);
         this.explode(this.boss.x - 40, this.boss.y + 20, true);
         this.explode(this.boss.x + 40, this.boss.y - 10, true);
@@ -581,7 +645,10 @@ class Game {
       this.ui.setWeapon(p.weapon, p.power);
     } else if (kind === 'O') {
       // v4.0 僚机：最多 2 架
-      if (p.addDrone()) this.ui.floatScore(p.x, p.y - 34, '僚机加入!', '#7affd4');
+      if (p.addDrone()) {
+        this.ui.floatScore(p.x, p.y - 34, '僚机加入!', '#7affd4');
+        if (p.drones >= 2) this.unlock('drone2');
+      }
       else { this.addScore(200); this.ui.floatScore(p.x, p.y - 34, '+200', '#7affd4'); }
     } else if (kind === 'G') {
       // v8.0 磁力芯片
@@ -618,6 +685,8 @@ class Game {
       p.power = Math.max(1, p.power - 1);   // 掉一级火力
       this.ui.setWeapon(p.weapon, p.power);
       if (p.loseDrone()) this.ui.floatScore(p.x, p.y - 58, '僚机损毁', '#ff9a3c');  // v4.0
+      this.combo = 0; this.comboT = 0;   // v10.0 坠机断连击
+      this.ui.setCombo(0);
       p.x = W / 2; p.y = H - 120;
       p.invul = 2.4;
     }

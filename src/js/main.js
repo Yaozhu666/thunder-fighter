@@ -25,7 +25,8 @@
     el: {
       hud: $('hud'), score: $('score'), best: $('best'),
       lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
-      energy: $('hud-energy-fill'), diff: $('hud-diff'),
+      energy: $('hud-energy-fill'), diff: $('hud-diff'), combo: $('hud-combo'),
+      achCount: $('ach-count'), overCombo: $('over-combo'), overAch: $('over-ach'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -72,6 +73,12 @@
       this.el.diff.textContent = '· ' + diff.name + ' ·';
       this.el.diff.style.color = diff.color;
     },
+    setCombo(n) {
+      this.el.combo.textContent = n >= 3 ? `COMBO ×${n}` : '';
+      this.el.combo.style.fontSize = n >= 10 ? '20px' : '15px';
+      this.el.combo.style.color = n >= 10 ? '#ffe14a' : '#cfe9ff';
+    },
+    setAchCount(n) { this.el.achCount.textContent = n; },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
     setBossName(name) { document.getElementById('boss-name').textContent = name; },
@@ -92,10 +99,12 @@
     floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
     loadBest() { return parseInt(localStorage.getItem('th_best') || '0', 10) || 0; },
     saveBest(v) { try { localStorage.setItem('th_best', String(v)); } catch (e) { /* file:// 某些环境禁用 */ } },
-    showGameOver(score, kills, stage, isBest) {
+    showGameOver(score, kills, stage, isBest, maxCombo, newAch) {
       this.el.overScore.textContent = score;
       this.el.overKills.textContent = kills;
       this.el.overWave.textContent = stage;
+      this.el.overCombo.textContent = '×' + maxCombo;
+      this.el.overAch.textContent = newAch > 0 ? `+${newAch} 成就` : '—';
       this.el.newBest.classList.toggle('hidden', !isBest);
       this.setBest(game.best);
       this.showScreen('over');
@@ -107,6 +116,7 @@
   window.game = game; // 调试用
   game.best = ui.loadBest();
   ui.setBest(game.best);
+  ui.setAchCount(game._ach.length);
 
   /* ---------- 键盘 ---------- */
   const KEYMAP = {
