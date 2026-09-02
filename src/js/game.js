@@ -128,7 +128,9 @@ class Game {
     this.ui.setWeapon(this.player.weapon, this.player.power);
     this.ui.setEnergy(0);
     this.ui.setDiff(this.diff);
+    this.ui.setStage(this.stage);
     this.ui.setCombo(0);
+    this.ui.updateBuffs(this.player);
     this.ui.hideBossBar();
   }
 
@@ -224,6 +226,7 @@ class Game {
   nextWave() {
     this.wave++;
     if (this.stage >= 10) this.unlock('stage10');   // v10.0
+    this.ui.setStage(this.stage);   // v11.1 关卡常驻显示
     // 常规关最多 2 波，走完自动进入下一关
     if (this.waveInStage > 2) { this.waveInStage = 1; this.stage++; }
     else { this.waveInStage++; }
@@ -498,6 +501,7 @@ class Game {
         this.stage++;
         this.waveInStage = 0;
         this.waveTimer = 2.2;
+        this.ui.setStage(this.stage);   // v11.1 突破横幅期间同步关卡号
         this.ui.showWaveBanner(`第 ${this.stage - 1} 关 突破！`, false, 1600);
         this.spawnQueue = [];
       }
@@ -553,6 +557,7 @@ class Game {
     // 道具
     for (const u of this.powerups) u.update(dt, this);
     this.powerups = this.powerups.filter(u => !u.dead);
+    this.ui.updateBuffs(this.player);   // v11.1 增益栏同步（磁力倒计时等）
 
     this.updateWave(dt);
 

@@ -26,6 +26,7 @@
       hud: $('hud'), score: $('score'), best: $('best'),
       lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
       energy: $('hud-energy-fill'), diff: $('hud-diff'), combo: $('hud-combo'),
+      stage: $('hud-stage'), buffs: $('hud-buffs'),
       achCount: $('ach-count'), overCombo: $('over-combo'), overAch: $('over-ach'),
       pauseScore: $('pause-score'), pauseStage: $('pause-stage'), pauseCombo: $('pause-combo'),
       btnMute: $('btn-mute'),
@@ -76,6 +77,17 @@
     setDiff(diff) {
       this.el.diff.textContent = '· ' + diff.name + ' ·';
       this.el.diff.style.color = diff.color;
+    },
+    setStage(n) { this.el.stage.textContent = '第 ' + n + ' 关'; },
+    // 增益栏（v11.1）：护盾/僚机/磁力/暴击 常驻显示，仅在内容变化时写 DOM
+    updateBuffs(p) {
+      const segs = [];
+      if (p.shield > 0) segs.push(`<span style="color:#4ac8ff">盾×${p.shield}</span>`);
+      if (p.drones > 0) segs.push(`<span style="color:#7affd4">◆${p.drones}</span>`);
+      if (p.magnetT > 0) segs.push(`<span style="color:#b0ff7a">磁${Math.ceil(p.magnetT)}s</span>`);
+      if (p.crit > 0) segs.push(`<span style="color:#ff7a7a">暴${Math.round(p.crit * 100)}%</span>`);
+      const html = segs.join('<i class="sep"></i>');
+      if (html !== this._buffHtml) { this._buffHtml = html; this.el.buffs.innerHTML = html; }
     },
     setCombo(n) {
       this.el.combo.textContent = n >= 3 ? `COMBO ×${n}` : '';
