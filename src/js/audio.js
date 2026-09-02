@@ -5,6 +5,7 @@ const SFX = (() => {
   let ctx = null;
   let master = null;
   let muted = false;
+  try { muted = localStorage.getItem('th_mute') === '1'; } catch (e) {}   // v11.0 静音持久化
 
   function ensure() {
     if (!ctx) {
@@ -57,7 +58,11 @@ const SFX = (() => {
 
   return {
     unlock() { ensure(); },
-    toggleMute() { muted = !muted; return muted; },
+    toggleMute() {
+      muted = !muted;
+      try { localStorage.setItem('th_mute', muted ? '1' : '0'); } catch (e) {}
+      return muted;
+    },
     get muted() { return muted; },
 
     shoot()      { tone('square', 880, 320, 0.07, 0.05); },

@@ -27,6 +27,8 @@
       lives: $('hud-lives'), bombs: $('hud-bombs'), weapon: $('hud-weapon'),
       energy: $('hud-energy-fill'), diff: $('hud-diff'), combo: $('hud-combo'),
       achCount: $('ach-count'), overCombo: $('over-combo'), overAch: $('over-ach'),
+      pauseScore: $('pause-score'), pauseStage: $('pause-stage'), pauseCombo: $('pause-combo'),
+      btnMute: $('btn-mute'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -50,6 +52,7 @@
         d.className = 'pip pip-life';
         this.el.lives.appendChild(d);
       }
+      this.el.lives.classList.toggle('danger', n <= 1);   // v11.0 低生命警示
     },
     setBombs(n) {
       this.el.bombs.innerHTML = '';
@@ -58,6 +61,7 @@
         d.className = 'pip pip-bomb';
         this.el.bombs.appendChild(d);
       }
+      this.el.bombs.classList.toggle('empty', n === 0);   // v11.0 无炸弹灰显
     },
     setWeapon(type, lv) {
       const w = WEAPONS[type];
@@ -67,7 +71,7 @@
     },
     setEnergy(v) {
       this.el.energy.style.width = v + '%';
-      this.el.energy.style.boxShadow = v >= 100 ? '0 0 10px #ffe14a' : 'none';
+      this.el.energy.classList.toggle('full', v >= 100);   // v11.0 满能量脉冲
     },
     setDiff(diff) {
       this.el.diff.textContent = '· ' + diff.name + ' ·';
@@ -79,6 +83,15 @@
       this.el.combo.style.color = n >= 10 ? '#ffe14a' : '#cfe9ff';
     },
     setAchCount(n) { this.el.achCount.textContent = n; },
+    setPauseStats(score, stage, combo) {
+      this.el.pauseScore.textContent = score;
+      this.el.pauseStage.textContent = stage;
+      this.el.pauseCombo.textContent = '×' + combo;
+    },
+    setMuteUI(m) {
+      this.el.btnMute.textContent = m ? '🔇' : '🔊';
+      this.el.btnMute.classList.toggle('muted', m);
+    },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
     setBossName(name) { document.getElementById('boss-name').textContent = name; },
@@ -129,8 +142,14 @@
     if (KEYMAP[e.code]) { game.input[KEYMAP[e.code]] = true; game.input.pointerActive = false; e.preventDefault(); }
     if (e.code === 'Space') { game.input.bombRequested = true; e.preventDefault(); }
     if (e.code === 'KeyE') { game.input.ultRequested = true; e.preventDefault(); }
+    if (e.code === 'KeyM') { ui.setMuteUI(SFX.toggleMute()); e.preventDefault(); }   // v11.0 静音
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') {   // v11.0 快捷键
+      if (game.state === 'title' || game.state === 'gameover') startGame();
+      else if (game.state === 'paused') { game.resume(); ui.showScreen('hud-only'); }
+      e.preventDefault();
+    }
     if (e.code === 'KeyP' || e.code === 'Escape') {
-      if (game.state === 'playing') { game.pause(); ui.showScreen('pause'); }
+      if (game.state === 'playing') doPause();
       else if (game.state === 'paused') { game.resume(); ui.showScreen('hud-only'); }
     }
   });
@@ -185,6 +204,13 @@
     game.start();
     ui.showScreen('hud-only');
   }
+  // 统一暂停入口（v11.0）：附带本局战绩到暂停界面
+  function doPause() {
+    if (game.state !== 'playing') return;
+    game.pause();
+    ui.setPauseStats(game.score, game.stage, game.maxCombo);
+    ui.showScreen('pause');
+  }
   $('btn-start').addEventListener('click', startGame);
   $('btn-retry').addEventListener('click', startGame);
   // 难度选择（v9.0）
@@ -201,8 +227,13 @@
   $('btn-menu').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
   $('btn-quit').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
   // 中途直接退出：HUD ✕ → 暂停菜单（可继续或回主菜单）
-  $('btn-exit').addEventListener('click', () => {
-    if (game.state === 'playing') { game.pause(); ui.showScreen('pause'); }
+  $('btn-exit').addEventListener('click', doPause);
+  // 静音开关（v11.0）：按钮 + M 键共用，状态持久化
+  $('btn-mute').addEventListener('click', () => ui.setMuteUI(SFX.toggleMute()));
+  ui.setMuteUI(SFX.muted);
+  // 页面切走自动暂停（v11.0）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) doPause();
   });
 
   /* ---------- 主循环 ---------- */

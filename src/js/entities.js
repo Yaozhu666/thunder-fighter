@@ -795,6 +795,8 @@ class PowerUp {
     const c = colors[this.kind];
     g.save();
     g.translate(this.x, this.y);
+    // 即将落出屏幕：闪烁提醒（v11.0）
+    if (this.y > H - 130) g.globalAlpha = 0.5 + Math.sin(this.t * 16) * 0.4;
     g.rotate(Math.sin(time * 3) * 0.2);
     g.shadowColor = c; g.shadowBlur = 12;
     g.fillStyle = '#0a1428';
