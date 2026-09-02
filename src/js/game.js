@@ -77,6 +77,22 @@ class Game {
     };
 
     this._initStars();
+    this._makeVignette();
+    this.shoot = null;             // 流星点缀（v11.2）
+    this.shootCd = rand(3, 8);
+  }
+
+  /* 暗角贴图：预渲染一次，避免每帧径向渐变（v11.2） */
+  _makeVignette() {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const vg = c.getContext('2d');
+    const grad = vg.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, H * 0.74);
+    grad.addColorStop(0, 'rgba(0,0,10,0)');
+    grad.addColorStop(1, 'rgba(0,0,10,0.42)');
+    vg.fillStyle = grad;
+    vg.fillRect(0, 0, W, H);
+    this._vignette = c;
   }
 
   _initStars() {
@@ -433,6 +449,18 @@ class Game {
       s.y += s.speed * dt;
       if (s.y > H) { s.y = -4; s.x = rand(0, W); }
     }
+    // 流星点缀（v11.2，任何界面都有）
+    if (this.shoot) {
+      const s = this.shoot;
+      s.x += s.vx * dt; s.y += s.vy * dt; s.t += dt;
+      if (s.t > s.life || s.y > H + 40) this.shoot = null;
+    } else {
+      this.shootCd -= dt;
+      if (this.shootCd <= 0) {
+        this.shootCd = rand(5, 11);
+        this.shoot = { x: rand(60, W - 60), y: -20, vx: rand(-90, 90), vy: rand(430, 570), t: 0, life: 1.3 };
+      }
+    }
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 40);
     if (this.bombFlash > 0) this.bombFlash -= dt;
     if (this.comboT > 0) {           // v10.0 连击窗口
@@ -727,6 +755,18 @@ class Game {
     }
     g.globalAlpha = 1;
 
+    // 流星（v11.2）
+    if (this.shoot) {
+      const s = this.shoot;
+      const a = Math.max(0, 1 - s.t / s.life) * 0.8;
+      g.strokeStyle = `rgba(200,230,255,${a.toFixed(3)})`;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(s.x, s.y);
+      g.lineTo(s.x - s.vx * 0.09, s.y - s.vy * 0.09);
+      g.stroke();
+    }
+
     // Boss 警告
     if (this.bossWarnT > 0) {
       const blink = Math.sin(this.time * 10) > 0;
@@ -748,6 +788,9 @@ class Game {
     for (const b of this.bullets) b.draw(g);
     for (const pt of this.particles) pt.draw(g);
     for (const f of this.floats) f.draw(g);
+
+    // 暗角（v11.2，预渲染贴图）
+    g.drawImage(this._vignette, 0, 0);
 
     // 必杀激光（v5.0）
     if (this.beam && this.player.alive) {

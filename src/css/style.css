@@ -23,6 +23,15 @@ html, body {
   transform: translate(-50%, -50%);
   box-shadow: 0 0 60px rgba(60, 140, 255, .25), 0 0 0 1px #1c2c50;
 }
+/* 低生命全屏红光脉冲（v11.2） */
+#stage.low-hp::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 70px rgba(255, 40, 40, .4);
+  animation: lowhp-pulse 1s ease-in-out infinite;
+}
+@keyframes lowhp-pulse { 50% { opacity: .35; } }
 
 canvas { display: block; width: 100%; height: 100%; background: #04060f; }
 

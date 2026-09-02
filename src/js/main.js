@@ -54,6 +54,7 @@
         this.el.lives.appendChild(d);
       }
       this.el.lives.classList.toggle('danger', n <= 1);   // v11.0 低生命警示
+      document.getElementById('stage').classList.toggle('low-hp', n <= 1);   // v11.2 全屏红光脉冲
     },
     setBombs(n) {
       this.el.bombs.innerHTML = '';
@@ -131,6 +132,7 @@
       this.el.overCombo.textContent = '×' + maxCombo;
       this.el.overAch.textContent = newAch > 0 ? `+${newAch} 成就` : '—';
       this.el.newBest.classList.toggle('hidden', !isBest);
+      document.getElementById('stage').classList.remove('low-hp');
       this.setBest(game.best);
       this.showScreen('over');
     },
