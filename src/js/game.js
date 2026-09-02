@@ -295,20 +295,22 @@ class Game {
     this.explode(enemy.x, enemy.y, enemy.type === 'heavy');
     this.ui.floatScore(enemy.x, enemy.y, `+${enemy.score}`);
 
-    // 掉落（v3.0：精英机必掉道具；其余按概率表）
+    // 掉落（v8.0：加入 G 磁力/C 暴击芯片，总掉率 49%）
     let kind = null;
     if (enemy.type === 'elite') {
       kind = ['P', 'P', 'W', 'M', 'S', 'B'][irand(0, 5)];
     } else if (enemy.type !== 'meteor') {   // 陨石不掉落（v6.0）
       const roll = Math.random();
-      if (roll < 0.040) kind = 'H';        // 4%
-      else if (roll < 0.110) kind = 'B';   // 7%
-      else if (roll < 0.270) kind = 'P';   // 16%
-      else if (roll < 0.335) kind = 'S';   // 6.5%
-      else if (roll < 0.370) kind = 'W';   // 3.5%
-      else if (roll < 0.405) kind = 'M';   // 3.5%
-      else if (roll < 0.430) kind = 'V';   // 2.5%
-      else if (roll < 0.460) kind = 'O';   // 3%（v4.0 僚机）
+      if (roll < 0.035) kind = 'H';        // 3.5%
+      else if (roll < 0.10) kind = 'B';    // 6.5%
+      else if (roll < 0.25) kind = 'P';    // 15%
+      else if (roll < 0.315) kind = 'S';   // 6.5%
+      else if (roll < 0.35) kind = 'W';    // 3.5%
+      else if (roll < 0.385) kind = 'M';   // 3.5%
+      else if (roll < 0.41) kind = 'V';    // 2.5%
+      else if (roll < 0.44) kind = 'O';    // 3%
+      else if (roll < 0.465) kind = 'G';   // 2.5%
+      else if (roll < 0.49) kind = 'C';    // 2.5%
     }
     if (kind) this.powerups.push(new PowerUp(enemy.x, enemy.y, kind));
   }
@@ -460,7 +462,7 @@ class Game {
     }
 
     // 道具
-    for (const u of this.powerups) u.update(dt);
+    for (const u of this.powerups) u.update(dt, this);
     this.powerups = this.powerups.filter(u => !u.dead);
 
     this.updateWave(dt);
@@ -473,13 +475,20 @@ class Game {
         if (e.dead) continue;
         if (hitTest(b, e)) {
           b.dead = true;
-          e.onHit(this);
+          const crit = Math.random() < p.crit;   // v8.0 暴击：双倍伤害
+          if (crit) {
+            this.ui.floatScore(e.x, e.y - 18, '会心!', '#ff7a7a');
+            this.spawnParticles(b.x, b.y, 4, '#ff7a7a', 2.2, 0.3);
+          }
+          e.onHit(this, crit ? 2 : 1);
           break;
         }
       }
       if (!b.dead && this.boss && this.boss.phase > 0 && hitTest(b, this.boss)) {
         b.dead = true;
-        if (this.boss.onHit(this)) {
+        const crit = Math.random() < p.crit;
+        if (crit) this.ui.floatScore(this.boss.x + rand(-20, 20), this.boss.y, '会心!', '#ff7a7a');
+        if (this.boss.onHit(this, crit ? 2 : 1)) {
           this.boss.dead = true; // 交由上方 Boss 处理块结算
         } else {
           SFX.hitEnemy();
@@ -488,7 +497,8 @@ class Game {
       }
       if (!b.dead && this.miniBoss && this.miniBoss.phase > 0 && hitTest(b, this.miniBoss)) {
         b.dead = true;
-        if (this.miniBoss.onHit(this)) this.miniBoss.dead = true;
+        const critM = Math.random() < p.crit;
+        if (this.miniBoss.onHit(this, critM ? 2 : 1)) this.miniBoss.dead = true;
         else { SFX.hitEnemy(); this.spawnParticles(b.x, b.y, 2, '#ffffff', 1.6, 0.2); }
       }
     }
@@ -548,6 +558,14 @@ class Game {
       // v4.0 僚机：最多 2 架
       if (p.addDrone()) this.ui.floatScore(p.x, p.y - 34, '僚机加入!', '#7affd4');
       else { this.addScore(200); this.ui.floatScore(p.x, p.y - 34, '+200', '#7affd4'); }
+    } else if (kind === 'G') {
+      // v8.0 磁力芯片
+      p.magnetT = 12;
+      this.ui.floatScore(p.x, p.y - 34, '磁力吸附!', '#b0ff7a');
+    } else if (kind === 'C') {
+      // v8.0 暴击芯片（可叠加至 20%）
+      p.crit = Math.min(0.20, p.crit + 0.06);
+      this.ui.floatScore(p.x, p.y - 34, '暴击芯片!', '#ff7a7a');
     } else if (kind === 'S') {
       p.shield = Math.min(3, p.shield + 1);
       this.ui.floatScore(p.x, p.y - 34, '护盾!', '#4ac8ff');

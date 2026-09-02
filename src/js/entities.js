@@ -35,6 +35,8 @@ class Player {
     this.drones = 0;          // 僚机数量 0~2（v4.0）
     this.dr = [];             // 僚机实例 {x,y,cd}
     this.energy = 0;          // 必杀能量 0~100（v5.0）
+    this.magnetT = 0;         // 磁力吸附剩余秒数（v8.0）
+    this.crit = 0;            // 暴击概率（v8.0）
     this.shield = 0;          // 护盾剩余次数
     this.invul = 0;           // 无敌剩余秒数
     this.fireCd = 0;          // 开火冷却
@@ -65,6 +67,7 @@ class Player {
     this.y = clamp(this.y, 40, H - 30);
 
     if (this.invul > 0) this.invul -= dt;
+    if (this.magnetT > 0) this.magnetT -= dt;
 
     // 僚机：跟随 + 自动射击（v4.0）
     for (let i = 0; i < this.dr.length; i++) {
@@ -450,8 +453,8 @@ class Enemy {
     game.spawnBullet(Bullet.enemy, this.x, this.y + 8, dx / d * sp, dy / d * sp, r, '#ffb04a', delay);
   }
 
-  onHit(game) {
-    this.hp--;
+  onHit(game, dmg = 1) {
+    this.hp -= dmg;
     this.flash = 0.08;
     if (this.hp <= 0) {
       this.dead = true;
@@ -687,8 +690,8 @@ class Boss {
     SFX.enemyShoot();
   }
 
-  onHit(game) {
-    this.hp--;
+  onHit(game, dmg = 1) {
+    this.hp -= dmg;
     this.flash = 0.05;
     if (this.hp <= 0) { this.dead = true; return true; }
     return false;
@@ -759,7 +762,7 @@ class Boss {
 }
 
 /* ===================== 道具 ===================== */
-const POWERUP_KINDS = ['P', 'S', 'B', 'H', 'V', 'W', 'M', 'O'];
+const POWERUP_KINDS = ['P', 'S', 'B', 'H', 'V', 'W', 'M', 'O', 'G', 'C'];
 
 class PowerUp {
   constructor(x, y, kind) {
@@ -770,14 +773,25 @@ class PowerUp {
     this.dead = false;
     this.t = 0;
   }
-  update(dt) {
+  update(dt, game) {
     this.t += dt;
-    this.y += this.vy * dt;
-    this.x += Math.sin(this.t * 2.5) * 26 * dt;
+    const p = game && game.player;
+    if (p && p.magnetT > 0 && game.state === 'playing') {
+      // 被磁力吸附：朝玩家持续加速（v8.0）
+      const dx = p.x - this.x, dy = p.y - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      this.pull = (this.pull || 100) + 900 * dt;
+      this.x += dx / d * this.pull * dt;
+      this.y += dy / d * this.pull * dt;
+    } else {
+      this.pull = 0;
+      this.y += this.vy * dt;
+      this.x += Math.sin(this.t * 2.5) * 26 * dt;
+    }
     if (this.y > H + 30) this.dead = true;
   }
   draw(g, time) {
-    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e', V: '#e8f6ff', W: '#f4ff4a', M: '#c44aff', O: '#7affd4' };
+    const colors = { P: '#4aff8a', S: '#4ac8ff', B: '#ffc860', H: '#ff6a9e', V: '#e8f6ff', W: '#f4ff4a', M: '#c44aff', O: '#7affd4', G: '#b0ff7a', C: '#ff7a7a' };
     const c = colors[this.kind];
     g.save();
     g.translate(this.x, this.y);
