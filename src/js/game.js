@@ -23,12 +23,13 @@ class Game {
     this.floats = [];
     this.stars = [];
 
-    this.wave = 0;
+    this.wave = 0;                 // 总波次计数
+    this.stage = 1;                // 当前关卡（1 起，无限）
+    this.waveInStage = 0;          // 关内波次 1~3 常规，4=Boss
     this.waveTimer = 0;
     this.spawnQueue = [];
     this.spawnTimer = 0;
-    this.enemyScale = 1;           // 随波次增强的系数
-    this.bossEvery = 5;            // 每 5 波一个 Boss
+    this.enemyScale = 1;           // 随关卡增强的系数
     this.bossWarnT = 0;
 
     this.shake = 0;
@@ -72,6 +73,8 @@ class Game {
     this.score = 0;
     this.kills = 0;
     this.wave = 0;
+    this.stage = 1;
+    this.waveInStage = 0;
     this.waveTimer = 1.2;          // 立即开第一波
     this.spawnQueue = [];
     this.spawnTimer = 0;
@@ -100,7 +103,7 @@ class Game {
     SFX.gameover();
     const isBest = this.score > this.best;
     if (isBest) { this.best = this.score; this.ui.saveBest(this.best); }
-    this.ui.showGameOver(this.score, this.kills, this.wave, isBest);
+    this.ui.showGameOver(this.score, this.kills, this.stage, isBest);
   }
 
   /* ---------- 生成接口 ---------- */
@@ -128,46 +131,54 @@ class Game {
     else { this.shake = Math.max(this.shake, 6); SFX.explode(); }
   }
 
-  /* ---------- 波次系统 ---------- */
+  /* ---------- 关卡系统：每关 3 个常规波 + 关底 Boss，关卡无限 ---------- */
   nextWave() {
     this.wave++;
-    this.enemyScale = 1 + (this.wave - 1) * 0.12;
-    this.ui.showWaveBanner(this.wave, this.wave % this.bossEvery === 0);
-    SFX.wave();
+    this.waveInStage++;
+    if (this.waveInStage > 4) { this.waveInStage = 1; }
 
-    if (this.wave % this.bossEvery === 0) {
-      // Boss 波：警告 + 单 Boss
+    this.enemyScale = 1 + (this.stage - 1) * 0.22 + (this.waveInStage - 1) * 0.04;
+
+    if (this.waveInStage === 4) {
+      // 关底 Boss 波
       this.bossWarnT = 2.2;
       SFX.bossWarn();
       this.spawnQueue = [{ type: 'boss', t: 2.4 }];
       this.spawnTimer = 0;
-    } else {
-      // 常规波：按预算生成编队
-      const budget = 6 + this.wave * 2.5;
-      const q = [];
-      let t = 0.4;
-      let spent = 0;
-      while (spent < budget) {
-        const roll = Math.random();
-        let type = 'bee', cost = 1;
-        if (this.wave >= 2 && roll < 0.25) { type = 'wing'; cost = 2; }
-        else if (this.wave >= 3 && roll < 0.38) { type = 'kamika'; cost = 2.5; }
-        else if (this.wave >= 4 && roll < 0.5) { type = 'heavy'; cost = 4; }
-        // 编队：小蜂 3 连
-        if (type === 'bee' && Math.random() < 0.6) {
-          const x = rand(50, W - 50);
-          for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.28 });
-          spent += cost * 3; t += 1.1;
-        } else {
-          q.push({ type, x: rand(40, W - 40), t });
-          spent += cost; t += rand(0.5, 1.0);
-        }
-      }
-      this.spawnQueue = q;
-      this.spawnTimer = 0;
-      // 波次限时推进：队列走完 + 4 秒缓冲
-      this.waveTimer = t + 4;
+      this.ui.showWaveBanner(`第 ${this.stage} 关 · BOSS 来袭`, true);
+      return;
     }
+
+    if (this.waveInStage === 1) {
+      this.ui.showWaveBanner(`第 ${this.stage} 关`, false);
+      SFX.wave();
+    }
+
+    // 常规波：按预算生成编队（关卡与关内波次双成长）
+    const budget = 7 + this.stage * 3 + this.waveInStage * 2;
+    const q = [];
+    let t = 0.4;
+    let spent = 0;
+    while (spent < budget) {
+      const roll = Math.random();
+      let type = 'bee', cost = 1;
+      if (this.stage >= 1 && this.waveInStage >= 2 && roll < 0.25) { type = 'wing'; cost = 2; }
+      else if (this.stage >= 2 && roll < 0.38) { type = 'kamika'; cost = 2.5; }
+      else if (this.stage >= 2 && this.waveInStage >= 2 && roll < 0.5) { type = 'heavy'; cost = 4; }
+      // 编队：小蜂 3 连
+      if (type === 'bee' && Math.random() < 0.6) {
+        const x = rand(50, W - 50);
+        for (let i = 0; i < 3; i++) q.push({ type, x, t: t + i * 0.28 });
+        spent += cost * 3; t += 0.9;
+      } else {
+        q.push({ type, x: rand(40, W - 40), t });
+        spent += cost; t += rand(0.4, 0.8);
+      }
+    }
+    this.spawnQueue = q;
+    this.spawnTimer = 0;
+    // 波次限时推进：队列走完 + 3.5 秒缓冲
+    this.waveTimer = t + 3.5;
   }
 
   updateWave(dt) {
@@ -177,7 +188,9 @@ class Game {
       while (this.spawnQueue.length && this.spawnQueue[0].t <= this.spawnTimer) {
         const item = this.spawnQueue.shift();
         if (item.type === 'boss') {
-          this.boss = new Boss(this.wave);
+          const cfg = BOSS_TYPES[(this.stage - 1) % BOSS_TYPES.length];
+          this.boss = new Boss(cfg, this.stage);
+          this.ui.setBossName(cfg.name);
           this.ui.showBossBar();
         } else {
           this.enemies.push(new Enemy(item.type, item.x, -40, this.enemyScale));
@@ -274,18 +287,23 @@ class Game {
       this.boss.update(dt, this);
       this.ui.setBossHp(this.boss.hp / this.boss.maxHp);
       if (this.boss.dead) {
-        this.addScore(300 + this.wave * 100);
+        // —— 关卡通关结算 ——
+        const bonus = 500 * this.stage;
+        this.addScore(bonus);
         this.explode(this.boss.x, this.boss.y, true);
         this.explode(this.boss.x - 40, this.boss.y + 20, true);
         this.explode(this.boss.x + 40, this.boss.y - 10, true);
-        this.ui.floatScore(this.boss.x, this.boss.y, `+${300 + this.wave * 100}`, '#ff7ad9');
+        this.ui.floatScore(this.boss.x, this.boss.y - 20, `通关奖励 +${bonus}`, '#ff7ad9');
         // Boss 必掉双道具
         this.powerups.push(new PowerUp(this.boss.x - 24, this.boss.y, 'P'));
         this.powerups.push(new PowerUp(this.boss.x + 24, this.boss.y, Math.random() < 0.5 ? 'B' : 'H'));
         this.boss = null;
         this.ui.hideBossBar();
-        this.waveTimer = 2.5;
-        // 兜底：若队列残留则清空
+        // 进入下一关
+        this.stage++;
+        this.waveInStage = 0;
+        this.waveTimer = 2.8;
+        this.ui.showWaveBanner(`第 ${this.stage - 1} 关 突破！`, false, 1800);
         this.spawnQueue = [];
       }
     }

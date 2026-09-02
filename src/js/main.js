@@ -59,25 +59,28 @@
     },
     showBossBar() { this.el.bossBar.classList.remove('hidden'); this.el.bossHp.style.width = '100%'; },
     hideBossBar() { this.el.bossBar.classList.add('hidden'); },
+    setBossName(name) { document.getElementById('boss-name').textContent = name; },
     setBossHp(frac) { this.el.bossHp.style.width = Math.max(0, frac * 100) + '%'; },
-    showWaveBanner(n, isBoss) {
+    showWaveBanner(text, isBoss, duration = 1400) {
       const b = this.el.banner;
-      b.textContent = isBoss ? `第 ${n} 波 · BOSS` : `第 ${n} 波`;
+      b.textContent = text;
+      if (isBoss) { b.style.color = '#ffb3b3'; b.style.textShadow = '0 0 18px #ff5050, 0 0 40px #ff5050'; }
+      else { b.style.color = ''; b.style.textShadow = ''; }
       b.classList.remove('hidden');
       // 重启动画
       b.style.animation = 'none';
       void b.offsetWidth;
       b.style.animation = 'banner-in .5s ease-out';
       clearTimeout(this._bannerT);
-      this._bannerT = setTimeout(() => b.classList.add('hidden'), 1400);
+      this._bannerT = setTimeout(() => b.classList.add('hidden'), duration);
     },
     floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
     loadBest() { return parseInt(localStorage.getItem('th_best') || '0', 10) || 0; },
     saveBest(v) { try { localStorage.setItem('th_best', String(v)); } catch (e) { /* file:// 某些环境禁用 */ } },
-    showGameOver(score, kills, wave, isBest) {
+    showGameOver(score, kills, stage, isBest) {
       this.el.overScore.textContent = score;
       this.el.overKills.textContent = kills;
-      this.el.overWave.textContent = wave;
+      this.el.overWave.textContent = stage;
       this.el.newBest.classList.toggle('hidden', !isBest);
       this.setBest(game.best);
       this.showScreen('over');
@@ -156,6 +159,10 @@
   $('btn-resume').addEventListener('click', () => { game.resume(); ui.showScreen('hud-only'); });
   $('btn-menu').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
   $('btn-quit').addEventListener('click', () => { game.toTitle(); ui.showScreen('title'); });
+  // 中途直接退出：HUD ✕ → 暂停菜单（可继续或回主菜单）
+  $('btn-exit').addEventListener('click', () => {
+    if (game.state === 'playing') { game.pause(); ui.showScreen('pause'); }
+  });
 
   /* ---------- 主循环 ---------- */
   let lastT = performance.now();

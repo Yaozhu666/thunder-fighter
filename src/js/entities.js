@@ -199,10 +199,10 @@ Bullet.enemy = 'enemy';
 /* ===================== 敌机 ===================== */
 /* 类型表：小蜂 / 侧翼机 / 自爆机 / 重炮机 */
 const ENEMY_TYPES = {
-  bee:    { hp: 1,  score: 10, r: 12, color: '#ff6a6a', fire: 0,     body: 'bee' },
-  wing:   { hp: 2,  score: 20, r: 14, color: '#ff9a3c', fire: 3.2,   body: 'wing' },
-  kamika: { hp: 3,  score: 30, r: 12, color: '#ff3c9e', fire: 0,     body: 'kamika' },
-  heavy:  { hp: 7,  score: 60, r: 22, color: '#b06aff', fire: 2.4,   body: 'heavy' },
+  bee:    { hp: 2,  score: 10, r: 12, color: '#ff6a6a', fire: 4.8,   body: 'bee' },
+  wing:   { hp: 3,  score: 20, r: 14, color: '#ff9a3c', fire: 2.0,   body: 'wing' },
+  kamika: { hp: 4,  score: 30, r: 12, color: '#ff3c9e', fire: 0,     body: 'kamika' },
+  heavy:  { hp: 9,  score: 60, r: 22, color: '#b06aff', fire: 1.6,   body: 'heavy' },
 };
 
 class Enemy {
@@ -224,12 +224,12 @@ class Enemy {
     this.targetX = x;
     this.flash = 0;
 
-    if (type === 'bee') {
-      this.vy = rand(150, 210) * Math.min(1.5, waveScale);
+    if (this.type === 'bee') {
+      this.vy = rand(150, 210) * Math.min(1.6, waveScale);
       this.amp = rand(30, 70);
       this.freq = rand(2, 4);
     } else if (type === 'wing') {
-      this.vy = rand(90, 130);
+      this.vy = rand(90, 130) * Math.min(1.5, waveScale);
       this.vx = x < W / 2 ? rand(30, 70) : -rand(30, 70);
     } else if (type === 'kamika') {
       this.vy = 60;
@@ -255,7 +255,7 @@ class Enemy {
       const p = game.player;
       const dx = p.x - this.x, dy = p.y - this.y;
       const d = Math.hypot(dx, dy) || 1;
-      const sp = Math.min(560, 150 + this.t * 220);
+      const sp = Math.min(640, 200 + this.t * 260);
       this.x += (dx / d) * sp * dt;
       this.y += (dy / d) * sp * dt;
       if (Math.random() < dt * 8) game.spawnParticles(this.x, this.y, 1, '#ff3c9e', 1.2, 0.3);
@@ -279,24 +279,25 @@ class Enemy {
   fire(game) {
     const p = game.player;
     const E = Bullet.enemy;
-    if (this.type === 'wing') {
-      // 瞄准单发
-      this.aimShot(game, p, 240, 3.4);
+    if (this.type === 'bee' || this.type === 'wing') {
+      // 瞄准弹 2 连发（第二发延迟）
+      this.aimShot(game, p, 300, 3.6, 0);
+      this.aimShot(game, p, 300, 3.6, 0.15);
     } else if (this.type === 'heavy') {
       // 5 发扇形
       const ang = Math.atan2(p.y - this.y, p.x - this.x);
       for (let i = -2; i <= 2; i++) {
         const a = ang + i * 0.22;
-        game.spawnBullet(E, this.x, this.y + 10, Math.cos(a) * 200, Math.sin(a) * 200, 4.5, '#ff7ad9');
+        game.spawnBullet(E, this.x, this.y + 10, Math.cos(a) * 265, Math.sin(a) * 265, 4.5, '#ff7ad9');
       }
     }
     SFX.enemyShoot();
   }
 
-  aimShot(game, p, sp, r) {
+  aimShot(game, p, sp, r, delay = 0) {
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy) || 1;
-    game.spawnBullet(Bullet.enemy, this.x, this.y + 8, dx / d * sp, dy / d * sp, r, '#ffb04a');
+    game.spawnBullet(Bullet.enemy, this.x, this.y + 8, dx / d * sp, dy / d * sp, r, '#ffb04a', delay);
   }
 
   onHit(game) {
@@ -368,22 +369,39 @@ class Enemy {
 }
 
 /* ===================== Boss ===================== */
+/* 8 种关底 Boss，按关卡循环并逐关强化 */
+const BOSS_TYPES = [
+  { name: '无畏级 DREADNOUGHT', color: '#8a2be2', core: '#ff7ad9', scale: 1.00, hpMul: 1.0, speed: 0.70, fireEvery: 1.15, patterns: ['fan', 'ring', 'aimed'] },
+  { name: '迅猛号 RAPTOR',      color: '#e23b3b', core: '#ffb04a', scale: 0.85, hpMul: 0.8, speed: 1.50, fireEvery: 0.85, patterns: ['aimed', 'fan', 'aimed'] },
+  { name: '九头蛇 HYDRA',       color: '#3bd46a', core: '#aaff7a', scale: 1.05, hpMul: 1.1, speed: 0.80, fireEvery: 1.30, patterns: ['spiral', 'fan', 'spiral'] },
+  { name: '移动要塞 FORTRESS',  color: '#e2883b', core: '#ffd24a', scale: 1.25, hpMul: 1.5, speed: 0.45, fireEvery: 1.60, patterns: ['ring', 'rain', 'fan'] },
+  { name: '幻影 PHANTOM',       color: '#3bd4c8', core: '#b0ffff', scale: 0.80, hpMul: 0.9, speed: 2.00, fireEvery: 0.75, patterns: ['aimed', 'rain', 'aimed'] },
+  { name: '泰坦 TITAN',         color: '#d4b13b', core: '#fff0a0', scale: 1.45, hpMul: 2.0, speed: 0.40, fireEvery: 1.50, patterns: ['ring', 'fan', 'spiral'] },
+  { name: '漩涡 VORTEX',        color: '#3b6ae2', core: '#7ab0ff', scale: 1.00, hpMul: 1.3, speed: 0.90, fireEvery: 1.00, patterns: ['spiral', 'ring', 'spiral'] },
+  { name: '蚀日 ECLIPSE',       color: '#45202e', core: '#ff3040', scale: 1.30, hpMul: 2.4, speed: 1.10, fireEvery: 0.95, patterns: ['fan', 'ring', 'spiral', 'aimed'], aura: true },
+];
+
 class Boss {
-  constructor(wave) {
-    this.x = W / 2; this.y = -120;
-    this.r = 46;
-    this.wave = wave;
-    const hp = 220 + (wave - 1) * 90;
+  constructor(cfg, level) {
+    this.cfg = cfg;
+    this.level = level;
+    this.x = W / 2; this.y = -140;
+    this.r = 46 * cfg.scale;
+    const hp = Math.round((300 + level * 100) * cfg.hpMul);
     this.hp = hp; this.maxHp = hp;
-    this.phase = 0;          // 0 进场, 1 战斗, 2 狂暴
+    this.phase = 0;          // 0 进场, 1 战斗
     this.dead = false;
     this.t = 0;
     this.fireCd = 2;
-    this.pattern = 0;
-    this.patternT = 0;
+    this.patternIdx = 0;
+    this.spiralA = Math.random() * Math.PI * 2;
     this.flash = 0;
-    this.leaving = false;
+    // 关卡强化系数
+    this.bSpeed = 1 + Math.min(0.6, (level - 1) * 0.07);
+    this.cdMul = Math.max(0.55, 1 - (level - 1) * 0.05);
   }
+
+  get enraged() { return this.hp < this.maxHp * 0.35; }
 
   update(dt, game) {
     this.t += dt;
@@ -395,56 +413,72 @@ class Boss {
       return;
     }
 
-    const enraged = this.hp < this.maxHp * 0.35;
-    if (enraged && this.phase === 1) { this.phase = 2; game.spawnParticles(this.x, this.y, 30, '#ff5050', 4, 0.6); SFX.bossWarn(); }
+    if (this.enraged && !this._wasEnraged) {
+      this._wasEnraged = true;
+      game.spawnParticles(this.x, this.y, 30, '#ff5050', 4, 0.6);
+      SFX.bossWarn();
+    }
 
-    // 水平巡航
-    const sw = enraged ? 1.6 : 1.0;
+    // 水平巡航（速度型 Boss 移动更快）
+    const sw = this.cfg.speed * (this.enraged ? 1.6 : 1.0);
     this.x = W / 2 + Math.sin(this.t * 0.7 * sw) * (W / 2 - 90);
 
-    // 弹幕
     this.fireCd -= dt;
-    if (this.fireCd <= 0) {
-      this.fire(game, enraged);
-    }
+    if (this.fireCd <= 0) this.fire(game);
   }
 
-  fire(game, enraged) {
-    const E = Bullet.enemy;
+  fire(game) {
+    const key = this.cfg.patterns[this.patternIdx % this.cfg.patterns.length];
+    this.patternIdx++;
     const p = game.player;
-    this.pattern = (this.pattern + 1) % 3;
-    const speed = enraged ? 1.25 : 1;
+    const E = Bullet.enemy;
+    const sp = this.bSpeed;
+    const n = this.enraged;           // 狂暴加量
 
-    if (this.pattern === 0) {         // 扇形
+    if (key === 'fan') {              // 瞄准扇形
       const ang = Math.atan2(p.y - this.y, p.x - this.x);
-      const n = enraged ? 9 : 7;
-      for (let i = 0; i < n; i++) {
-        const a = ang + (i - (n - 1) / 2) * 0.17;
-        game.spawnBullet(E, this.x, this.y + 30, Math.cos(a) * 215 * speed, Math.sin(a) * 215 * speed, 4.6, '#ff5a5a');
+      const cnt = n ? 11 : 9;
+      for (let i = 0; i < cnt; i++) {
+        const a = ang + (i - (cnt - 1) / 2) * 0.17;
+        game.spawnBullet(E, this.x, this.y + 30, Math.cos(a) * 270 * sp, Math.sin(a) * 270 * sp, 4.6, '#ff5a5a');
       }
-      this.fireCd = enraged ? 1.1 : 1.5;
-    } else if (this.pattern === 1) {  // 环形
-      const n = enraged ? 22 : 16;
+    } else if (key === 'ring') {      // 全周环形
+      const cnt = n ? 26 : 18;
       const off = Math.random() * Math.PI;
-      for (let i = 0; i < n; i++) {
-        const a = off + i / n * Math.PI * 2;
-        game.spawnBullet(E, this.x, this.y, Math.cos(a) * 160 * speed, Math.sin(a) * 160 * speed, 4.2, '#ffa04a');
+      for (let i = 0; i < cnt; i++) {
+        const a = off + i / cnt * Math.PI * 2;
+        game.spawnBullet(E, this.x, this.y, Math.cos(a) * 210 * sp, Math.sin(a) * 210 * sp, 4.2, '#ffa04a');
       }
-      this.fireCd = enraged ? 1.5 : 2.1;
-    } else {                          // 瞄准三连
-      this.aimBurst(game, p, 3, 300 * speed);
-      this.fireCd = enraged ? 0.9 : 1.3;
+    } else if (key === 'aimed') {     // 瞄准三连（延迟弹）
+      const dx = p.x - this.x, dy = p.y - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      for (let i = 0; i < 3; i++) {
+        const s = 340 * sp - i * 45;
+        game.spawnBullet(E, this.x, this.y + 30, dx / d * s, dy / d * s, 5, '#ff5ad9', i * 0.14);
+      }
+    } else if (key === 'spiral') {    // 双臂螺旋
+      const arms = 3;
+      for (let i = 0; i < arms; i++) {
+        const a = this.spiralA + i / arms * Math.PI * 2;
+        game.spawnBullet(E, this.x, this.y, Math.cos(a) * 195 * sp, Math.sin(a) * 195 * sp, 4.0, '#7ab0ff');
+      }
+      this.spiralA += 0.42;
+      // 螺旋是连发：短时间内多次触发
+      this.fireCd = 0.14;
+      this.spiralBurst = (this.spiralBurst || 0) + 1;
+      if (this.spiralBurst >= (n ? 22 : 16)) { this.spiralBurst = 0; this.fireCd = this.cfg.fireEvery * this.cdMul * 1.4; }
+      SFX.enemyShoot();
+      return;
+    } else if (key === 'rain') {      // 随机弹雨
+      const cnt = n ? 12 : 9;
+      for (let i = 0; i < cnt; i++) {
+        const a = Math.PI / 2 + rand(-0.55, 0.55);
+        game.spawnBullet(E, this.x + rand(-50, 50) * this.cfg.scale, this.y + 24, Math.cos(a) * 250 * sp, Math.sin(a) * 250 * sp, 3.8, '#ff8a5a');
+      }
     }
-    SFX.enemyShoot();
-  }
 
-  aimBurst(game, p, count, sp) {
-    const dx = p.x - this.x, dy = p.y - this.y;
-    const d = Math.hypot(dx, dy) || 1;
-    for (let i = 0; i < count; i++) {
-      const s = sp - i * 45;
-      game.spawnBullet(Bullet.enemy, this.x, this.y + 30, dx / d * s, dy / d * s, 5, '#ff5ad9', i * 0.14);
-    }
+    this.fireCd = this.cfg.fireEvery * this.cdMul * (n ? 0.8 : 1) * rand(0.9, 1.1);
+    SFX.enemyShoot();
   }
 
   onHit(game) {
@@ -457,7 +491,17 @@ class Boss {
   draw(g, time) {
     g.save();
     g.translate(this.x, this.y);
-    const col = this.flash > 0 ? '#ffffff' : '#8a2be2';
+    g.scale(this.cfg.scale, this.cfg.scale);
+    const col = this.flash > 0 ? '#ffffff' : this.cfg.color;
+
+    // 蚀日光环
+    if (this.cfg.aura) {
+      g.strokeStyle = `rgba(255,48,64,${0.35 + Math.sin(time * 4) * 0.2})`;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(0, 0, 62, 0, Math.PI * 2);
+      g.stroke();
+    }
 
     // 巨型母舰
     g.fillStyle = col;
@@ -468,21 +512,21 @@ class Boss {
     g.lineTo(58, 4); g.lineTo(34, 30);
     g.closePath(); g.fill();
 
-    g.fillStyle = '#3d1163';
+    g.fillStyle = 'rgba(0,0,0,.35)';
     g.beginPath();
     g.ellipse(0, 0, 30, 20, 0, 0, Math.PI * 2);
     g.fill();
 
     // 核心发光
     const pulse = 8 + Math.sin(time * 6) * 2.5;
-    g.fillStyle = this.phase === 2 ? '#ff3030' : '#ff7ad9';
+    g.fillStyle = this.enraged ? '#ff3030' : this.cfg.core;
     g.shadowColor = g.fillStyle;
     g.shadowBlur = 18;
     g.beginPath(); g.arc(0, 6, pulse, 0, Math.PI * 2); g.fill();
     g.shadowBlur = 0;
 
     // 两侧炮塔
-    g.fillStyle = '#5a1a8a';
+    g.fillStyle = 'rgba(0,0,0,.4)';
     g.fillRect(-44, 8, 12, 16);
     g.fillRect(32, 8, 12, 16);
 
