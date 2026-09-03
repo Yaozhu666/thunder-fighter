@@ -19,7 +19,7 @@ const ACHS = [
   { id: 'score100k', name: '十万大名',   desc: '单局得分突破 10 万' },
   { id: 'prime',     name: '蚀日终结者', desc: '击落蚀日·真形态' },
 ];
-const ACH_KEY = 'th_ach';
+/* 档案与设备键：档案数据经 Players 按玩家隔离（v12.0） */
 
 class Game {
   constructor(canvas, ui) {
@@ -37,11 +37,11 @@ class Game {
     this.comboT = 0;               // 连击窗口
     this.maxCombo = 0;
     this.bossKills = 0;
-    this._ach = this.loadAch();
+    this._ach = Players.get(this.pname, 'th_ach', []);   // v12.0 按玩家隔离
     this.newAch = [];
 
-    let savedDiff = 'normal';
-    try { savedDiff = localStorage.getItem('th_diff') || 'normal'; } catch (e) {}
+    this.pname = Players.ensureDefault();   // v12.0 当前玩家名（一个名字=一个玩家）
+    let savedDiff = Players.get(this.pname, 'th_diff', 'normal');
     this.diffKey = DIFFS[savedDiff] ? savedDiff : 'normal';
     this.diff = DIFFS[this.diffKey];
 
@@ -164,24 +164,37 @@ class Game {
   resume() { if (this.state === 'paused') this.state = 'playing'; }
   toTitle(){ this.state = 'title'; }
 
-  /* 难度切换（v9.0） */
+  /* ---------- 玩家档案（v12.0） ---------- */
   setDifficulty(key) {
     if (!DIFFS[key]) return;
     this.diffKey = key;
     this.diff = DIFFS[key];
-    try { localStorage.setItem('th_diff', key); } catch (e) {}
+    Players.set(this.pname, 'th_diff', key);   // 难度按玩家记忆
     this.ui.setDiff(this.diff);
   }
 
-  /* ---------- 成就（v10.0） ---------- */
-  loadAch() {
-    try { return JSON.parse(localStorage.getItem(ACH_KEY) || '[]'); } catch (e) { return []; }
+  /* 切换玩家后刷新档案数据与展示 */
+  refreshProfile() {
+    const n = this.pname;
+    this.best = Players.get(n, 'th_best', 0);
+    this._ach = Players.get(n, 'th_ach', []);
+    this.newAch = [];
+    const d = Players.get(n, 'th_diff', 'normal');
+    this.diffKey = DIFFS[d] ? d : 'normal';
+    this.diff = DIFFS[this.diffKey];
+    this.ui.setBest(this.best);
+    this.ui.setAchCount(this._ach.length);
+    this.ui.setDiff(this.diff);
+    this.ui.setTitleStats(this.loadStats());
+    this.ui.setCurPlayer(n);
   }
+
+  /* ---------- 成就（v10.0） ---------- */
   hasAch(id) { return this._ach.indexOf(id) >= 0; }
   unlock(id) {
     if (this.hasAch(id)) return;
     this._ach.push(id);
-    try { localStorage.setItem(ACH_KEY, JSON.stringify(this._ach)); } catch (e) {}
+    Players.set(this.pname, 'th_ach', this._ach);   // v12.0 按玩家存储
     const a = ACHS.find(x => x.id === id);
     if (a) {
       this.newAch.push(id);
@@ -194,20 +207,19 @@ class Game {
     this.state = 'gameover';
     SFX.gameover();
     const isBest = this.score > this.best;
-    if (isBest) { this.best = this.score; this.ui.saveBest(this.best); }
+    if (isBest) { this.best = this.score; Players.set(this.pname, 'th_best', this.score); }   // v12.0 按玩家存储
     // 累计战绩（v11.4）
     const st = this.loadStats();
     st.games += 1;
     st.kills += this.kills;
     st.bestStage = Math.max(st.bestStage || 1, this.stage);
     st.bestCombo = Math.max(st.bestCombo || 0, this.maxCombo);
-    try { localStorage.setItem('th_stats', JSON.stringify(st)); } catch (e) {}
+    Players.set(this.pname, 'th_stats', st);
     this.ui.showGameOver(this.score, this.kills, this.stage, isBest, this.maxCombo, this.newAch.length, this.playT, st);
   }
 
   loadStats() {
-    try { return JSON.parse(localStorage.getItem('th_stats') || '{"games":0,"kills":0,"bestStage":1,"bestCombo":0}'); }
-    catch (e) { return { games: 0, kills: 0, bestStage: 1, bestCombo: 0 }; }
+    return Players.get(this.pname, 'th_stats', { games: 0, kills: 0, bestStage: 1, bestCombo: 0 });
   }
 
   /* ---------- 生成接口 ---------- */

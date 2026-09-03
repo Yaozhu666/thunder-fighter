@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>雷霆战鹰 · Thunder Hawk</title>
-<link rel="stylesheet" href="css/style.css?v=11.4">
+<link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
 <div id="stage">
@@ -50,14 +50,20 @@
     <button id="btn-start" class="btn">开始出击</button>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>
     <div class="title-ach">★ 成就 <span id="ach-count">0</span>/8</div>
+    <div class="profile-row">
+      <input id="name-input" maxlength="12" placeholder="玩家名（一个名字=一个玩家）" autocomplete="off">
+      <button id="btn-name" class="btn btn-ghost">确定</button>
+    </div>
+    <div id="player-list" class="player-list"></div>
+    <div class="title-player">玩家：<b id="cur-player">玩家1</b></div>
     <div class="title-stats" id="title-stats"></div>
-    <div class="version-tag">v11.4</div>
+    <div class="version-tag">v12.0</div>
   </div>
 
   <div id="screen-pause" class="screen hidden">
     <div class="screen-title">暂停</div>
     <div class="pause-stats">
-      <p>得分 <b id="pause-score">0</b> · 关卡 <b id="pause-stage">1</b> · 连击 <b id="pause-combo">×0</b></p>
+      <p>玩家 <b id="pause-player">玩家1</b> · 得分 <b id="pause-score">0</b> · 关卡 <b id="pause-stage">1</b> · 连击 <b id="pause-combo">×0</b></p>
       <p class="pause-keys">Enter 继续 &nbsp;|&nbsp; M 静音 &nbsp;|&nbsp; 空格 炸弹 &nbsp;|&nbsp; E 必杀</p>
       <div class="opt-row"><span>屏幕震动</span><button id="btn-shake" class="opt-toggle">开</button></div>
     </div>
@@ -81,9 +87,10 @@
     <p class="over-hint">按 Enter 快速再战</p>
   </div>
 </div>
-<script src="js/audio.js?v=11.4"></script>
-<script src="js/entities.js?v=11.4"></script>
-<script src="js/game.js?v=11.4"></script>
-<script src="js/main.js?v=11.4"></script>
+<script src="js/audio.js?v=12"></script>
+<script src="js/profile.js?v=12"></script>
+<script src="js/entities.js?v=12"></script>
+<script src="js/game.js?v=12"></script>
+<script src="js/main.js?v=12"></script>
 </body>
 </html>

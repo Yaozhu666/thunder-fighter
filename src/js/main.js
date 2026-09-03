@@ -31,6 +31,7 @@
       pauseScore: $('pause-score'), pauseStage: $('pause-stage'), pauseCombo: $('pause-combo'),
       btnMute: $('btn-mute'), btnShake: $('btn-shake'),
       overTime: $('over-time'), titleStats: $('title-stats'),
+      curPlayer: $('cur-player'), pausePlayer: $('pause-player'),
       bossBar: $('boss-bar'), bossHp: $('boss-hp'),
       banner: $('wave-banner'),
       title: $('screen-title'), pause: $('screen-pause'), over: $('screen-over'),
@@ -128,8 +129,10 @@
       this._bannerT = setTimeout(() => b.classList.add('hidden'), duration);
     },
     floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
-    loadBest() { return parseInt(localStorage.getItem('th_best') || '0', 10) || 0; },
-    saveBest(v) { try { localStorage.setItem('th_best', String(v)); } catch (e) { /* file:// 某些环境禁用 */ } },
+    setCurPlayer(n) {
+      this.el.curPlayer.textContent = n;
+      this.el.pausePlayer.textContent = n;
+    },
     fmtTime(t) {
       const m = Math.floor(t / 60), s = Math.floor(t % 60);
       return m + '分' + (s < 10 ? '0' : '') + s + '秒';
@@ -156,10 +159,8 @@
   /* ---------- 游戏实例 ---------- */
   const game = new Game(canvas, ui);
   window.game = game; // 调试用
-  game.best = ui.loadBest();
   ui.setBest(game.best);
-  ui.setAchCount(game._ach.length);
-  ui.setTitleStats(game.loadStats());
+  game.refreshProfile();   // v12.0 标题展示同步（最佳分/成就/战绩/难度/当前玩家）
 
   /* ---------- 键盘 ---------- */
   const KEYMAP = {
@@ -174,6 +175,7 @@
     if (e.code === 'KeyE') { game.input.ultRequested = true; e.preventDefault(); }
     if (e.code === 'KeyM') { ui.setMuteUI(SFX.toggleMute()); e.preventDefault(); }   // v11.0 静音
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {   // v11.0 快捷键
+      if (e.target && e.target.tagName === 'INPUT') return;   // v12.0 输入玩家名时不触发开局
       if (game.state === 'title' || game.state === 'gameover') startGame();
       else if (game.state === 'paused') { game.resume(); ui.showScreen('hud-only'); }
       e.preventDefault();
@@ -271,6 +273,44 @@
     game.shakeOn = !game.shakeOn;
     try { localStorage.setItem('th_shake', game.shakeOn ? '1' : '0'); } catch (e) {}
     ui.setShakeUI(game.shakeOn);
+  });
+
+  /* ---------- 玩家档案 UI（v12.0） ---------- */
+  const nameInput = $('name-input');
+  function applyName() {
+    const n = Players.switchTo(nameInput.value);
+    if (!n) return;
+    nameInput.value = '';
+    game.pname = n;
+    game.refreshProfile();
+    renderPlayerList();
+  }
+  function renderPlayerList() {
+    const wrap = $('player-list');
+    wrap.innerHTML = '';
+    for (const n of Players.list()) {
+      const b = document.createElement('button');
+      b.className = 'player-chip' + (n === game.pname ? ' active' : '');
+      b.textContent = n;
+      b.addEventListener('click', () => {
+        game.pname = n;
+        game.refreshProfile();
+        renderPlayerList();
+      });
+      wrap.appendChild(b);
+    }
+  }
+  $('btn-name').addEventListener('click', applyName);
+  nameInput.addEventListener('keydown', e => {
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); applyName(); }
+  });
+  game.refreshProfile();
+  renderPlayerList();
+
+  /* ---------- 服务器保活 + 关页自毁（v12.0） ---------- */
+  try { fetch('/ping').catch(() => {}); } catch (e) {}
+  window.addEventListener('pagehide', () => {
+    try { navigator.sendBeacon('/shutdown', '1'); } catch (e) {}
   });
 
   /* ---------- 主循环 ---------- */
