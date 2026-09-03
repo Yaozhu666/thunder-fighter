@@ -64,14 +64,54 @@ const Players = (() => {
     try { localStorage.setItem(key(prefix, name), JSON.stringify(val)); } catch (e) {}
   }
 
+  /* ---------- 战机舰队档案（v13.0）：th_fleet_名字 ---------- */
+  function defaultFleet() {
+    return {
+      owned: { falcon: { lv: 1 } },     // 已拥有战机 { id: {lv} }
+      equipped: 'falcon',               // 当前装备战机
+      cards: {},                        // 各战机卡数量 { id: n }
+      tickets: 0,                       // 战机券
+      pity: 0,                          // 保底计数（10 抽必高级）
+      progress: 0,                      // 连续通关进度（已连续打通的关卡数）
+      resume: 1,                        // 续关点（最近一次打上去输掉的关卡）
+      stats: {                          // 数值类成就累计
+        score: 0, bestScore: 0, combo: 0, elites: 0, bosses: 0, stage: 0,
+      },
+    };
+  }
+  function fleetGet(name) {
+    const f = get(name, 'th_fleet', null);
+    if (!f) return null;
+    const d = defaultFleet();
+    // 兼容填充缺省字段
+    f.owned = f.owned || d.owned;
+    f.equipped = f.equipped || 'falcon';
+    if (!f.owned.falcon) f.owned.falcon = { lv: 1 };
+    f.cards = f.cards || {};
+    f.tickets = f.tickets || 0;
+    f.pity = f.pity || 0;
+    f.progress = f.progress || 0;
+    f.resume = f.resume || 1;
+    f.stats = Object.assign({}, d.stats, f.stats || {});
+    return f;
+  }
+  function fleetSet(name, data) { set(name, 'th_fleet', data); }
+  /* 获取（不存在则建默认）并返回 */
+  function fleet(name) {
+    let f = fleetGet(name);
+    if (!f) { f = defaultFleet(); fleetSet(name, f); }
+    return f;
+  }
+
   return {
     list, current, ensureDefault, switchTo, get, set,
+    fleet, fleetGet, fleetSet, defaultFleet,
     /* 测试/管理用：删除某玩家档案 */
     remove(name) {
       const names = list().filter(n => n !== name);
       saveList(names);
       if (current() === name && names.length) setCurrent(names[0]);
-      for (const p of ['th_best', 'th_ach', 'th_stats', 'th_diff']) {
+      for (const p of ['th_best', 'th_ach', 'th_stats', 'th_diff', 'th_fleet']) {
         try { localStorage.removeItem(key(p, name)); } catch (e) {}
       }
     },

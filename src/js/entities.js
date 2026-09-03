@@ -16,11 +16,44 @@ function hitTest(a, b) {
 
 /* ===================== 武器种类 ===================== */
 /* V 火神炮（默认直射）/ W 散弹（宽角扇面）/ M 追踪导弹（自动索敌） */
+/* 高级专属武器（v13.0）：PH 幻影散光 / TH 雷霆贯射 / EC 暗夜双枪（局内捡不到） */
 const WEAPONS = {
-  V: { name: '火神炮',   color: '#9ff7ff' },
-  W: { name: '散弹',     color: '#f4ff4a' },
-  M: { name: '追踪导弹', color: '#c44aff' },
+  V:  { name: '火神炮',   color: '#9ff7ff' },
+  W:  { name: '散弹',     color: '#f4ff4a' },
+  M:  { name: '追踪导弹', color: '#c44aff' },
+  PH: { name: '幻影散光', color: '#7adcff' },
+  TH: { name: '雷霆贯射', color: '#ffd24a' },
+  EC: { name: '暗夜双枪', color: '#ff8ad4' },
 };
+
+/* ===================== 战机种类（v13.0） ===================== */
+/* 3 普通（对应 V/W/M）+ 3 高级（专属武器 + 内置被动）；武器道具 pickup = W/M/V 字母 */
+const SHIPS = {
+  falcon:  { id: 'falcon',  name: '猎鹰', rare: 'common', weapon: 'V',  passive: null,     pickup: 'V',  desc: '均衡 · 火神炮直射',   weaponName: '火神炮', passiveText: '' },
+  tempest: { id: 'tempest', name: '风暴', rare: 'common', weapon: 'W',  passive: null,     pickup: 'W',  desc: '清杂 · 散弹扇面',     weaponName: '散弹',   passiveText: '' },
+  viper:   { id: 'viper',   name: '毒牙', rare: 'common', weapon: 'M',  passive: null,     pickup: 'M',  desc: '索敌 · 追踪导弹',     weaponName: '追踪导弹', passiveText: '' },
+  phantom: { id: 'phantom', name: '幻影', rare: 'rare',   weapon: 'PH', passive: 'magnet', pickup: 'V',  desc: '稀有 · 幻影散光 · 内置磁力', weaponName: '幻影散光', passiveText: '内置磁力（自动吸道具）' },
+  thunder: { id: 'thunder', name: '雷霆', rare: 'epic',   weapon: 'TH', passive: 'shield', pickup: 'M',  desc: '史诗 · 雷霆贯射 · 开局护盾', weaponName: '雷霆贯射', passiveText: '开局 +1 护盾（上限 4）' },
+  eclipse: { id: 'eclipse', name: '暗夜', rare: 'legend', weapon: 'EC', passive: 'crit',   pickup: 'W',  desc: '传说 · 暗夜双枪 · 内置暴击', weaponName: '暗夜双枪', passiveText: '常驻 8% 暴击' },
+};
+const RARE_LV = { common: 0, rare: 1, epic: 2, legend: 3 };
+
+/* 战机升级折线（v13.0）：满级 Lv10 共 15 张（1/1/1/1/2/2/2/2/3）
+ * lv: 当前等级 1~9 → 升到 lv+1 需 consume(lv) 张 */
+function SHIP_UP_COST(lv) {
+  if (lv < 1) return 0;
+  if (lv < 5) return 1;   // 1→5 每级 1 张
+  if (lv < 9) return 2;   // 5→9 每级 2 张
+  return 3;               // 9→10 需 3 张
+}
+/* 伤害叠乘：Lv1~5 +4%/级、6~9 +6%/级、10 +8% */
+function SHIP_DMG_MUL(lv) {
+  let m = 1;
+  for (let i = 2; i <= lv; i++) m *= 1 + (i <= 5 ? 0.04 : (i <= 9 ? 0.06 : 0.08));
+  return m;
+}
+/* 得分倍率：每级 +2%（满级 +20%） */
+function SHIP_SCORE_MUL(lv) { return 1 + lv * 0.02; }
 
 /* ===================== 玩家 ===================== */
 class Player {
@@ -29,8 +62,9 @@ class Player {
     this.r = 10;              // 碰撞半径（判定小于视觉，符合射击游戏惯例）
     this.speed = 340;
     this.lives = 3;
-    this.bombs = 2;
-    this.power = 1;           // 火力等级 1~5（各武器通用）
+    this.bombs = 3;           // v13.0 初始 3（原 2）
+    this.power = 1;           // 火力等级 1~10（各武器通用；v13.0 上限 10）
+    this.powerProg = 0;       // v13.0 火力 6 级起升级进度（累计 P 点数）
     this.weapon = 'V';        // 武器种类
     this.drones = 0;          // 僚机数量 0~2（v4.0）
     this.dr = [];             // 僚机实例 {x,y,cd}
@@ -42,6 +76,11 @@ class Player {
     this.fireCd = 0;          // 开火冷却
     this.alive = true;
     this.tilt = 0;            // 左右倾斜角（视觉）
+    /* v13.0 战机系统 */
+    this.ship = SHIPS.falcon; // 当前战机（由 game 按装备设置）
+    this.shipLv = 1;          // 战机等级
+    this.shipMul = 1;         // 战机等级伤害倍率
+    this.scoreMul = 1;        // 战机等级得分倍率
   }
 
   update(dt, input, game) {
@@ -67,7 +106,6 @@ class Player {
     this.y = clamp(this.y, 40, H - 30);
 
     if (this.invul > 0) this.invul -= dt;
-    if (this.magnetT > 0) this.magnetT -= dt;
 
     // 僚机：跟随 + 自动射击（v4.0）
     for (let i = 0; i < this.dr.length; i++) {
@@ -77,16 +115,19 @@ class Player {
       d.y += (ty - d.y) * Math.min(1, dt * 8);
       d.cd -= dt;
       if (d.cd <= 0) {
-        game.spawnBullet(Bullet.player, d.x, d.y - 8, 0, -520, 2.6, '#7affd4');
+        game.spawnBullet(Bullet.player, d.x, d.y - 8, 0, -520, 2.6, '#7affd4', 0, { dmg: 1 });
         d.cd = 0.24;
       }
     }
+    // 被动磁力（幻影）：磁力恒常（不递减倒计时）
+    if (this.passiveMagnet) this.magnetT = 999;
+    else if (this.magnetT > 0) this.magnetT -= dt;
 
-    // 自动开火（冷却按武器区分：导弹节奏慢但自动索敌）
+    // 自动开火（冷却按武器区分：导弹节奏慢但自动索敌；v13.0 加入专属武器射速）
     this.fireCd -= dt;
     if (this.fireCd <= 0) {
       this.fire(game);
-      const base = { V: 0.16, W: 0.19, M: 0.30 }[this.weapon];
+      const base = { V: 0.16, W: 0.19, M: 0.30, PH: 0.21, TH: 0.48, EC: 0.19 }[this.weapon];
       this.fireCd = base - Math.min(0.06, (this.power - 1) * 0.015);
     }
   }
@@ -94,7 +135,7 @@ class Player {
   fire(game) {
     const B = Bullet.player;
     const x = this.x, y = this.y - 24;
-    const lv = this.power;
+    const lv = Math.min(5, this.power);   // v13.0 弹幕形态 1~5 封顶，6~10 级由 powerMul 伤害倍率接管
     if (this.weapon === 'W') {
       // 散弹：宽角扇面，覆盖广，逐级加弹数/威力
       const cfg = [null,
@@ -109,12 +150,35 @@ class Player {
         game.spawnBullet(B, x, y, Math.cos(a) * cfg.sp, Math.sin(a) * cfg.sp, cfg.r, '#f4ff4a');
       }
     } else if (this.weapon === 'M') {
-      // 追踪导弹：数量少，自动转向索敌
+      // 追踪导弹：数量少，自动转向索敌（v13.0 每发 2 伤 + 追踪角限 60°）
       const n = [0, 1, 2, 3, 4, 6][lv];
       for (let i = 0; i < n; i++) {
         const off = i - (n - 1) / 2;
         game.spawnBullet(B, x + off * 9, y, off * 22, -500, 4, '#ffb04a', 0,
-          { homing: true, accel: 560, maxSp: 780, turnRate: 5.0 });
+          { homing: true, accel: 560, maxSp: 780, turnRate: 5.0, maxTrack: Math.PI / 3, dmg: 2 });
+      }
+    } else if (this.weapon === 'PH') {
+      // 幻影散光（高级·幻影专属）：3~5 路激光，每发 2 伤
+      const n = [0, 3, 3, 4, 4, 5][lv];
+      const off = 17;
+      for (let i = 0; i < n; i++) {
+        const o = i - (n - 1) / 2;
+        game.spawnBullet(B, x + o * off, y, o * 40, -640, 3.4, '#7adcff', 0, { dmg: 2 });
+      }
+    } else if (this.weapon === 'TH') {
+      // 雷霆贯射（高级·雷霆专属）：单发穿透光束，每发 4 伤，可穿多目标
+      const n = [0, 1, 1, 2, 2, 3][lv];
+      for (let i = 0; i < n; i++) {
+        const o = i - (n - 1) / 2;
+        game.spawnBullet(B, x + o * 10, y, o * 18, -720, 5, '#ffd24a', 0, { dmg: 4, pierce: true, maxPierce: 5 });
+      }
+    } else if (this.weapon === 'EC') {
+      // 暗夜双枪（高级·暗夜专属）：左右双轨快射，每发 2 伤
+      const n = [0, 2, 3, 4, 5, 6][lv];
+      for (let i = 0; i < n; i++) {
+        const side = (i % 2 === 0) ? -1 : 1;
+        const k = Math.floor(i / 2);
+        game.spawnBullet(B, x + side * (26 + k * 12), y - (i % 2) * 8, side * 30, -680, 3.2, '#ff8ad4', 0, { dmg: 2 });
       }
     } else { // V 火神炮：原版直射弹幕
       if (lv === 1)      game.spawnBullet(B, x, y, 0, -620, 3.2, '#9ff7ff');
@@ -141,6 +205,13 @@ class Player {
   addEnergy(v) {
     this.energy = Math.min(100, this.energy + v);
   }
+
+  /* v13.0 火力 6~10 级伤害倍率（以 5 级满弹幕为基准 ×1.0） */
+  get powerMul() {
+    return [1, 1, 1, 1, 1, 1.1, 1.2, 1.3, 1.45, 1.6][Math.min(10, this.power) - 1] || 1;
+  }
+  /* v13.0 总伤害倍率 = 火力倍率 × 战机等级倍率 */
+  get totalDmgMul() { return this.powerMul * this.shipMul; }
 
   addDrone() {
     if (this.drones >= 2) return false;
@@ -253,9 +324,13 @@ class Bullet {
     this.color = color;
     this.dead = false;
     this.homing = false;
+    this.dmg = 1;             // v13.0 每发伤害（M 2 / 专属 2~4）
+    this.pierce = false;      // v13.0 穿透（雷霆贯射）
+    this.maxPierce = 1;       // 穿透目标数上限
+    this.hits = 0;
   }
   update(dt, game) {
-    // 追踪弹：限速转向朝最近目标，加速逼近
+    // 追踪弹：限速转向朝最近目标，加速逼近（v13.0 加追踪角限制：偏角过大放弃锁定）
     if (this.homing && game) {
       const tgt = game.nearestTarget(this.x, this.y);
       if (tgt) {
@@ -264,11 +339,14 @@ class Bullet {
         let d = want - cur;
         while (d > Math.PI) d -= Math.PI * 2;
         while (d < -Math.PI) d += Math.PI * 2;
-        const turn = (this.turnRate || 5) * dt;
-        cur += clamp(d, -turn, turn);
-        const sp = Math.min(this.maxSp || 780, Math.hypot(this.vx, this.vy) + (this.accel || 520) * dt);
-        this.vx = Math.cos(cur) * sp;
-        this.vy = Math.sin(cur) * sp;
+        // 偏角 > maxTrack（60°）→ 放弃锁定，直线飞行（可能打空）
+        if (!this.maxTrack || Math.abs(d) <= this.maxTrack) {
+          const turn = (this.turnRate || 5) * dt;
+          cur += clamp(d, -turn, turn);
+          const sp = Math.min(this.maxSp || 780, Math.hypot(this.vx, this.vy) + (this.accel || 520) * dt);
+          this.vx = Math.cos(cur) * sp;
+          this.vy = Math.sin(cur) * sp;
+        }
       }
     }
     // 蛇形弹：横向余弦摆动；加速弹：纵向加速度（v3.0）
@@ -296,6 +374,14 @@ class Bullet {
         g.fillStyle = `rgba(255,150,60,${0.55 + Math.random() * 0.4})`;
         g.beginPath(); g.moveTo(-1.8, 6); g.lineTo(1.8, 6); g.lineTo(0, 12 + Math.random() * 5); g.closePath(); g.fill();
         g.restore();
+      } else if (this.pierce) {
+        // 雷霆贯射：粗光束
+        g.fillStyle = this.color;
+        g.shadowBlur = 14;
+        g.fillRect(this.x - 2.4, this.y - this.r * 2.6, 4.8, this.r * 5.2);
+        g.fillStyle = '#fff6cf';
+        g.fillRect(this.x - 1, this.y - this.r * 2.4, 2, this.r * 4.8);
+        g.shadowBlur = 6;
       } else {
         g.fillRect(this.x - 1.6, this.y - this.r * 2.2, 3.2, this.r * 4.4);
       }
