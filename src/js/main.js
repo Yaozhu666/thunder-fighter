@@ -231,9 +231,9 @@
   canvas.addEventListener('touchend', e => { e.preventDefault(); clearTimeout(holdTimer); }, { passive: false });
 
   /* ---------- 按钮 ---------- */
-  function startGame() {
+  function startGame(stage) {
     SFX.unlock();
-    game.start();
+    game.start(stage || 1);        // v12.1 选关：传入起始关卡
     ui.showScreen('hud-only');
   }
   // 统一暂停入口（v11.0）：附带本局战绩到暂停界面
@@ -244,8 +244,8 @@
     ui.setShakeUI(game.shakeOn);
     ui.showScreen('pause');
   }
-  $('btn-start').addEventListener('click', startGame);
-  $('btn-retry').addEventListener('click', startGame);
+  $('btn-start').addEventListener('click', () => startGame());
+  $('btn-retry').addEventListener('click', () => startGame());
   // 难度选择（v9.0）
   document.querySelectorAll('.btn-diff').forEach(b => {
     b.addEventListener('click', () => {
@@ -314,6 +314,111 @@
   });
   game.refreshProfile();
   renderPlayerList();
+
+  /* ---------- 主界面信息功能（v12.1）：键位说明 / 玩法 / 选关 / 成就 ---------- */
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+  // 触屏设备：主界面操作提示改为触屏说明（手机上键位提示更清楚）
+  if (isTouch) {
+    const hint = document.querySelector('#screen-title .menu-hint');
+    if (hint) {
+      hint.innerHTML =
+        '<p>移动：手指拖动 &nbsp;|&nbsp; 射击：自动</p>' +
+        '<p>炸弹：快速双击 &nbsp;|&nbsp; 必杀：长按（能量满时）</p>' +
+        '<p>拾取道具换武器：W散弹 M导弹 V火神 O僚机 G磁力 C暴击</p>' +
+        '<p>暂停：右上角 ✕ &nbsp;|&nbsp; 详细见「键位说明」</p>';
+    }
+  }
+  const modal = $('modal'), modalTitle = $('modal-title'), modalBody = $('modal-body');
+  function openModal(title, html) {
+    modalTitle.textContent = title;
+    modalBody.innerHTML = html;
+    modal.classList.remove('hidden');
+  }
+  function closeModal() { modal.classList.add('hidden'); }
+  $('modal-close').addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
+
+  function keysContent() {
+    return (
+      '<h4>移动</h4><p>' + (isTouch ? '手指在屏幕上拖动（战机跟随手指）' : '鼠标移动 / WASD / 方向键') + '</p>' +
+      '<h4>射击</h4><p>自动开火，无需操作</p>' +
+      '<h4>炸弹</h4><p>' + (isTouch ? '快速双击屏幕' : '空格键') + ' — 清屏大杀器（有数量上限，可拾取补充）</p>' +
+      '<h4>必杀技</h4><p>' + (isTouch ? '长按屏幕约 0.45 秒（移动手指即取消）' : 'E 键') + ' — 能量满 100% 时释放</p>' +
+      '<h4>武器与增益（拾取对应道具自动获得 / 升级）</h4>' +
+      '<table><tr><th>道具</th><th>效果</th></tr>' +
+      '<tr><td>W</td><td>散弹（扇形弹幕）</td></tr>' +
+      '<tr><td>M</td><td>追踪导弹（自动索敌）</td></tr>' +
+      '<tr><td>V</td><td>火神炮（高速直线）</td></tr>' +
+      '<tr><td>O</td><td>僚机（编队火力）</td></tr>' +
+      '<tr><td>G</td><td>磁力吸附（吸道具）</td></tr>' +
+      '<tr><td>C</td><td>暴击（伤害翻倍）</td></tr></table>' +
+      '<h4>暂停 / 静音</h4><p>' + (isTouch ? '点击右上角 ✕ 按钮暂停' : 'P / Esc / 右上角 ✕ 暂停；M 静音') + '</p>' +
+      '<h4>其他</h4><p>Enter：开始 / 继续 / 快速再战</p>'
+    );
+  }
+  function howtoContent() {
+    return (
+      '<h4>目标</h4><p>操控战机躲避弹幕、击落敌机，尽可能多过关。关卡无限递增，越打越难。</p>' +
+      '<h4>武器与成长</h4><p>击落敌机掉落武器道具（W散弹 / M追踪导弹 / V火神炮），拾取同类道具可升级武器；' +
+      'O僚机 / G磁力 / C暴击 / 护盾等增益提升战力。</p>' +
+      '<h4>能量必杀</h4><p>自动射击积攒能量，满 100% 后释放必杀激光清屏。</p>' +
+      '<h4>炸弹</h4><p>保命清屏技，开局自带，可拾取补充。</p>' +
+      '<h4>连击与成就</h4><p>连续击落敌机保持连击（停止击落会清零），高连击挑战高分；共 8 个成就。</p>' +
+      '<h4>关卡结构</h4><p>每关 2 波常规战斗；每 5 关是 Boss 关；第 25 关是终极 Boss「蚀日·真形态」。' +
+      '部分关卡第 2 波会有中场 Boss 或陨石雨 / 蜂群事件波。</p>' +
+      '<h4>难度</h4><p>三档：轻松（弹速慢 / 掉落高）/ 标准 / 炼狱（弹速快 / 得分高），按玩家记忆。</p>'
+    );
+  }
+  let selStage = 1;
+  function stageContent() {
+    const cells = [];
+    for (let i = 1; i <= 25; i++) {
+      cells.push('<div class="stage-cell' + (i === selStage ? ' active' : '') + (i % 5 === 0 ? ' boss' : '') + '" data-s="' + i + '">' + i + '</div>');
+    }
+    return (
+      '<p style="text-align:center;opacity:.85">选择起始关卡（第 5/10/15/20/25 关为 Boss 关）</p>' +
+      '<div class="stage-grid">' + cells.join('') + '</div>' +
+      '<p class="stage-sel" style="text-align:center;margin:2px 0 6px">当前选择：第 <b style="color:#ffe14a">' + selStage + '</b> 关</p>' +
+      '<button class="btn" id="stage-go" style="min-width:150px;padding:10px 26px;font-size:15px;letter-spacing:4px">开始第 ' + selStage + ' 关</button>'
+    );
+  }
+  function bindStageGrid() {
+    modalBody.querySelectorAll('.stage-cell').forEach(c => {
+      c.addEventListener('click', () => {
+        selStage = parseInt(c.dataset.s, 10);
+        modalBody.querySelectorAll('.stage-cell').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        const go = modalBody.querySelector('#stage-go');
+        if (go) go.textContent = '开始第 ' + selStage + ' 关';
+        const selP = modalBody.querySelector('.stage-sel');
+        if (selP) selP.innerHTML = '当前选择：第 <b style="color:#ffe14a">' + selStage + '</b> 关';
+      });
+    });
+    const go = modalBody.querySelector('#stage-go');
+    if (go) go.addEventListener('click', () => { closeModal(); startGame(selStage); });
+  }
+  function achContent() {
+    const got = game._ach || [];
+    const rows = ACHS.map(a => {
+      const has = got.indexOf(a.id) >= 0;
+      return (
+        '<div class="ach-item' + (has ? '' : ' locked') + '">' +
+        '<div class="ach-ico">' + (has ? '★' : '☆') + '</div>' +
+        '<div class="ach-txt"><div class="ach-name">' + a.name + (has ? ' <span style="color:#4aff8a;font-size:11px">已解锁</span>' : '') + '</div>' +
+        '<div class="ach-desc">' + a.desc + '</div></div></div>'
+      );
+    }).join('');
+    return (
+      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">玩家「' + game.pname + '」已解锁 <b style="color:#ffe14a">' + got.length + '</b> / ' + ACHS.length + '</p>' + rows
+    );
+  }
+  $('btn-keys').addEventListener('click', () => openModal('键位说明', keysContent()));
+  $('btn-howto').addEventListener('click', () => openModal('玩法介绍', howtoContent()));
+  $('btn-stage').addEventListener('click', () => { selStage = 1; openModal('选择关卡', stageContent()); bindStageGrid(); });
+  $('btn-ach').addEventListener('click', () => openModal('成就', achContent()));
 
   /* ---------- 服务器保活 + 关页自毁（v12.0） ---------- */
   // 仅 http(s) 运行模式启用（file:// 直开无服务器，跳过避免 CORS 报错）；

@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>雷霆战鹰 · Thunder Hawk</title>
-<link rel="stylesheet" href="css/style.css?v=1205">
+<link rel="stylesheet" href="css/style.css?v=1211">
 </head>
 <body>
 <div id="stage">
@@ -48,6 +48,12 @@
       <button class="btn-diff" data-diff="hard">炼狱</button>
     </div>
     <button id="btn-start" class="btn">开始出击</button>
+    <div class="feature-row">
+      <button class="btn-mini" id="btn-keys">键位说明</button>
+      <button class="btn-mini" id="btn-howto">玩法介绍</button>
+      <button class="btn-mini" id="btn-stage">选关</button>
+      <button class="btn-mini" id="btn-ach">成就</button>
+    </div>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>
     <div class="title-ach">★ 成就 <span id="ach-count">0</span>/8</div>
     <div class="profile-row">
@@ -57,7 +63,7 @@
     <div id="player-list" class="player-list"></div>
     <div class="title-player">玩家：<b id="cur-player">玩家1</b></div>
     <div class="title-stats" id="title-stats"></div>
-    <div class="version-tag">v12.0</div>
+    <div class="version-tag">v12.1</div>
   </div>
 
   <div id="screen-pause" class="screen hidden">
@@ -86,12 +92,21 @@
     <button id="btn-menu" class="btn btn-ghost">返回主菜单</button>
     <p class="over-hint">按 Enter 快速再战</p>
   </div>
+
+  <!-- 通用信息弹窗（v12.1：键位说明 / 玩法 / 选关 / 成就） -->
+  <div id="modal" class="screen modal hidden">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-body" id="modal-body"></div>
+      <button id="modal-close" class="btn btn-ghost">返回</button>
+    </div>
+  </div>
 </div>
-<script src="js/audio.js?v=1205"></script>
-<script src="js/profile.js?v=1205"></script>
-<script src="js/entities.js?v=1205"></script>
-<script src="js/game.js?v=1205"></script>
-<script src="js/main.js?v=1205"></script>
+<script src="js/audio.js?v=1211"></script>
+<script src="js/profile.js?v=1211"></script>
+<script src="js/entities.js?v=1211"></script>
+<script src="js/game.js?v=1211"></script>
+<script src="js/main.js?v=1211"></script>
 </body>
 </html>
 

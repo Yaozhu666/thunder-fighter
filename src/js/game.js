@@ -114,7 +114,7 @@ class Game {
   }
 
   /* ---------- 生命周期 ---------- */
-  reset() {
+  reset(startStage) {
     this.player = new Player();
     this.bullets = [];
     this.pendingBullets = [];
@@ -127,7 +127,8 @@ class Game {
     this.score = 0;
     this.kills = 0;
     this.wave = 0;
-    this.stage = 1;
+    this.stage = startStage || 1;   // v12.1 选关：可从指定关卡开始
+    this._noStageAch = (startStage || 1) > 1;   // v12.1 选关开局不自动解锁「抵达第10关」成就
     this.waveInStage = 0;
     this.waveTimer = 1.2;          // 立即开第一波
     this.spawnQueue = [];
@@ -155,8 +156,8 @@ class Game {
     this.ui.hideBossBar();
   }
 
-  start() {
-    this.reset();
+  start(stage) {
+    this.reset(stage);             // v12.1 选关：传入起始关卡
     this.state = 'playing';
   }
 
@@ -271,7 +272,7 @@ class Game {
   /* ---------- 关卡系统 v2.0：常规关 2 个快节奏波；每 5 关一个独立 Boss 关 ---------- */
   nextWave() {
     this.wave++;
-    if (this.stage >= 10) this.unlock('stage10');   // v10.0
+    if (!this._noStageAch && this.stage >= 10) this.unlock('stage10');   // v10.0；v12.1 选关开局不触发
     this.ui.setStage(this.stage);   // v11.1 关卡常驻显示
     // 常规关最多 2 波，走完自动进入下一关
     if (this.waveInStage > 2) { this.waveInStage = 1; this.stage++; }
