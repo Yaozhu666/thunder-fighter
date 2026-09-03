@@ -1,4 +1,4 @@
-# project-002-thunder-fighter · 雷鹰战机（Thunder Hawk）
+# 雷鹰战机（Thunder Hawk）
 
 雷霆战机风格的竖版飞行射击游戏。纯 HTML5 Canvas + 原生 JavaScript，**零依赖、零外部资源**（图形全部 Canvas 路径绘制，音效全部 WebAudio 实时合成）。
 
