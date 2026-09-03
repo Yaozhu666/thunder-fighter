@@ -316,16 +316,30 @@
   renderPlayerList();
 
   /* ---------- 服务器保活 + 关页自毁（v12.0） ---------- */
-  // 仅 http(s) 运行模式启用（file:// 直开无服务器，跳过避免 CORS 报错）
+  // 仅 http(s) 运行模式启用（file:// 直开无服务器，跳过避免 CORS 报错）；
+  // 静态托管（如 GitHub Pages）无自毁服务器：/ping 非 200 即判定无服务器，自动停用保活与信标，
+  // 避免每 2s 一次的 404 请求；本地 server.py 模式 /ping 恒 200，保活/关页杀服照常工作
   if (location.protocol === 'http:' || location.protocol === 'https:') {
+    let serverAlive = true;
+    let keepaliveTimer = null;
+    const stopKeepalive = () => {
+      serverAlive = false;
+      if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null; }
+      window.removeEventListener('pagehide', onHide);
+    };
+    const ping = async () => {
+      if (!serverAlive) return;
+      try {
+        const r = await fetch('/ping', { cache: 'no-store' });
+        if (!r.ok) stopKeepalive();
+      } catch (e) { stopKeepalive(); }
+    };
+    const onHide = () => { try { navigator.sendBeacon('/shutdown', '1'); } catch (e) {} };
     // 页面常驻期间定时保活：间隔(2s) < 服务端宽限(4s)，刷新/关页竞态下旧页面的 /shutdown
     // beacon 即使晚于新页面的 /ping 到达，也会被下一次定时 /ping 取消，避免刷新误杀
-    const ping = () => { try { fetch('/ping').catch(() => {}); } catch (e) {} };
     ping();
-    setInterval(ping, 2000);
-    window.addEventListener('pagehide', () => {
-      try { navigator.sendBeacon('/shutdown', '1'); } catch (e) {}
-    });
+    keepaliveTimer = setInterval(ping, 2000);
+    window.addEventListener('pagehide', onHide);
   }
 
   /* ---------- 主循环 ---------- */
