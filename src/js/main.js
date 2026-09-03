@@ -143,8 +143,8 @@
     },
     floatScore(x, y, text, color) { game.floats.push(new FloatText(x, y, text, color)); },
     setCurPlayer(n) {
-      this.el.curPlayer.textContent = n;
-      this.el.pausePlayer.textContent = n;
+      if (this.el.curPlayer) this.el.curPlayer.textContent = n;   // v13.1 取名 UI 暂隐藏，判空
+      if (this.el.pausePlayer) this.el.pausePlayer.textContent = n;
     },
     fmtTime(t) {
       const m = Math.floor(t / 60), s = Math.floor(t % 60);
@@ -288,59 +288,18 @@
     ui.setShakeUI(game.shakeOn);
   });
 
-  /* ---------- 玩家档案 UI（v12.0） ---------- */
-  const nameInput = $('name-input');
-  /* 同步标题界面难度按钮高亮到当前玩家的已记忆难度（切人后 refreshProfile 不更新按钮态） */
+  /* ---------- 玩家档案（v13.1 暂时隐藏取名 UI，等联机上线再启用；默认单玩家「玩家1」） ---------- */
   function syncDiffButtons() {
     document.querySelectorAll('.btn-diff').forEach(x => x.classList.remove('active'));
     const b = document.querySelector(`.btn-diff[data-diff="${game.diffKey}"]`);
     if (b) b.classList.add('active');
   }
-  function applyName() {
-    const n = Players.switchTo(nameInput.value);
-    if (!n) return;
-    nameInput.value = '';
-    game.pname = n;
-    game.refreshProfile();
-    renderPlayerList();
-    syncDiffButtons();
-  }
-  function renderPlayerList() {
-    const wrap = $('player-list');
-    wrap.innerHTML = '';
-    for (const n of Players.list()) {
-      const b = document.createElement('button');
-      b.className = 'player-chip' + (n === game.pname ? ' active' : '');
-      b.textContent = n;
-      b.addEventListener('click', () => {
-        game.pname = n;
-        game.refreshProfile();
-        renderPlayerList();
-        syncDiffButtons();
-      });
-      wrap.appendChild(b);
-    }
-  }
-  $('btn-name').addEventListener('click', applyName);
-  nameInput.addEventListener('keydown', e => {
-    if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); applyName(); }
-  });
+  game.pname = Players.ensureDefault();
   game.refreshProfile();
-  renderPlayerList();
+  syncDiffButtons();
 
-  /* ---------- 主界面信息功能（v12.1）：键位说明 / 玩法 / 选关 / 成就 ---------- */
+  /* ---------- 主界面信息功能（v12.1）：键位 / 玩法 / 选关 / 成就 / 战机 / 抽卡 / 背包 ---------- */
   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
-  // 触屏设备：主界面操作提示改为触屏说明（手机上键位提示更清楚）
-  if (isTouch) {
-    const hint = document.querySelector('#screen-title .menu-hint');
-    if (hint) {
-      hint.innerHTML =
-        '<p>移动：手指拖动 &nbsp;|&nbsp; 射击：自动</p>' +
-        '<p>炸弹：快速双击 &nbsp;|&nbsp; 必杀：长按（能量满时）</p>' +
-        '<p>拾取道具换武器：W散弹 M导弹 V火神 O僚机 G磁力 C暴击</p>' +
-        '<p>暂停：右上角 ✕ &nbsp;|&nbsp; 详细见「键位说明」</p>';
-    }
-  }
   const modal = $('modal'), modalTitle = $('modal-title'), modalBody = $('modal-body');
   function openModal(title, html) {
     modalTitle.textContent = title;
@@ -384,8 +343,8 @@
       '<h4>能量必杀</h4><p>自动射击积攒能量，满 100% 后释放必杀激光清屏。</p>' +
       '<h4>炸弹</h4><p>保命清屏技，开局自带 3 颗（上限 5，满后拾取 +100 分；对 Boss 伤害降低）。</p>' +
       '<h4>连击与成就</h4><p>连续击落敌机保持连击；成就分「数值类」（可升级，奖励更多券）与「一次性」两类。</p>' +
-      '<h4>关卡与续关</h4><p>每关 2 波常规战斗；每 5 关是 Boss 关。选关界面可主动选关：已打过的关卡可续接进度，' +
-      '跳过关卡打赢不计入连续进度（直通 25 关除外）。</p>' +
+      '<h4>关卡与进度</h4><p>每关 2 波常规战斗；每 5 关是 Boss 关。选关界面可主动选关：已打过的关卡可继续推进，' +
+      '未打过的关卡通关不计入连续进度（直达第 25 关打赢即全通除外）。</p>' +
       '<h4>难度</h4><p>三档：轻松（弹速慢 / 掉落高）/ 标准 / 炼狱（弹速快 / 得分高），按玩家记忆。</p>'
     );
   }
@@ -403,17 +362,17 @@
       if (i === resume) cls += ' resume';       // v13.0 续关点（打过输掉，可续，不算跳过）
       const skip = i > prog + 1 && i !== resume; // v13.0 跳关（未打过）——续关点除外
       if (skip) cls += ' skip';
-      cells.push('<div class="' + cls + '" data-s="' + i + '" data-skip="' + (skip ? 1 : 0) + '">' + i + (i <= prog ? '<i>✓</i>' : '') + '</div>');
+      cells.push('<div class="' + cls + '" data-s="' + i + '" data-skip="' + (skip ? 1 : 0) + '">' + i + '</div>');
     }
     const progTxt = prog >= 25 ? '<b style="color:#4aff8a">已全通 25 关</b>'
-      : '连续通关 <b style="color:#4aff8a">' + prog + '</b> 关' + (resume > 1 ? ' · 续关点第 <b style="color:#7ac8ff">' + resume + '</b> 关' : '');
+      : '连续通关 <b style="color:#4aff8a">' + prog + '</b> 关' + (resume > 1 ? ' · 继续点第 <b style="color:#7ac8ff">' + resume + '</b> 关' : '');
     return (
       '<p style="text-align:center;opacity:.9;margin:2px 0 6px">' + progTxt + '</p>' +
       '<div class="stage-grid">' + cells.join('') + '</div>' +
       '<p class="stage-sel" style="text-align:center;margin:4px 0 2px">当前选择：第 <b style="color:#ffe14a">' + selStage + '</b> 关</p>' +
       '<p id="stage-note" style="text-align:center;min-height:16px;font-size:11px;color:#ff9a7a;margin:0 0 6px"></p>' +
       '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
-      '<button class="btn" id="stage-resume" style="min-width:120px;padding:10px 18px;font-size:14px" ' + (resume > 1 && resume <= 25 ? '' : 'disabled') + '>续关 第 ' + resume + ' 关</button>' +
+      '<button class="btn" id="stage-resume" style="min-width:120px;padding:10px 18px;font-size:14px" ' + (resume > 1 && resume <= 25 ? '' : 'disabled') + '>继续 第 ' + resume + ' 关</button>' +
       '<button class="btn" id="stage-go" style="min-width:150px;padding:10px 26px;font-size:15px;letter-spacing:4px">开始第 ' + selStage + ' 关</button>' +
       '</div>'
     );
@@ -433,7 +392,7 @@
           const f = game.fleet();
           const prog = f.progress || 0;
           noteEl().textContent = c.dataset.skip === '1'
-            ? (selStage === 25 ? '跳关直通 25 关：打赢即全通 ✓' : '跳关：此前关卡未打，通关不计入连续进度')
+            ? (selStage === 25 ? '直达第 25 关：打赢即全通 ✓' : '此前关卡未打，从第 ' + selStage + ' 关开始（通关不计入连续进度）')
             : (selStage === 1 ? '从第 1 关开始' : '第 ' + selStage + ' 关起步（已打过，通关续接进度）');
         }
       });
@@ -447,7 +406,7 @@
       const f = game.fleet();
       const prog = f.progress || 0;
       noteEl().textContent = selStage > prog + 1
-        ? (selStage === 25 ? '跳关直通 25 关：打赢即全通 ✓' : '跳关：此前关卡未打，通关不计入连续进度')
+        ? (selStage === 25 ? '直达第 25 关：打赢即全通 ✓' : '此前关卡未打，从第 ' + selStage + ' 关开始（通关不计入连续进度）')
         : (selStage === 1 ? '从第 1 关开始' : '第 ' + selStage + ' 关起步（已打过，通关续接进度）');
     }
   }
@@ -481,7 +440,7 @@
       );
     }).join('');
     return (
-      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">玩家「' + game.pname + '」已解锁 <b style="color:#ffe14a">' + unlockedCount + '</b> / ' + (ACH_NUM.length + ACH_ONCE.length) + ' 项</p>' +
+      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">已解锁 <b style="color:#ffe14a">' + unlockedCount + '</b> / ' + (ACH_NUM.length + ACH_ONCE.length) + ' 项</p>' +
       '<h4 style="color:#4aff8a;margin:8px 0 4px">数值类（可升级）</h4>' + numRows +
       '<h4 style="color:#ffe14a;margin:10px 0 4px">一次性</h4>' + onceRows
     );
@@ -489,8 +448,6 @@
   /* ---------- 战机系统（v13.0） ---------- */
   function fleetContent() {
     const f = game.fleet();
-    const pity = f.pity || 0;
-    const toPity = Math.max(0, 10 - pity);
     const cards = f.cards || {};
     const rows = Object.keys(SHIPS).map(id => {
       const s = SHIPS[id];
@@ -509,24 +466,15 @@
         '<div class="ship-rare">' + (high ? '★ 稀有 · 被动：' + (s.passiveText || '') : '普通战机') + '</div>' +
         (lv > 0
           ? '<div class="ship-acts"><button class="mini" data-act="eq">' + (isEq ? '已装备' : '装备') + '</button>' +
-            (lv < 10 ? '<button class="mini" data-act="up"' + (hasCards ? '' : ' disabled') + '>升级 需' + upCost + '卡</button>' : '<button class="mini" disabled>已满级</button>') + '</div>'
-          : '<div class="ship-acts"><button class="mini" disabled>未获得 · 抽卡解锁</button></div>') +
+            (lv < 10 ? '<button class="mini" data-act="up"' + (hasCards ? '' : ' disabled') + '>升级 需' + upCost + '卡·持' + (cards[id] || 0) + '</button>' : '<button class="mini" disabled>已满级</button>') + '</div>'
+          : '<div class="ship-acts"><button class="mini" disabled>未获得 · 去抽卡</button></div>') +
         '</div>'
       );
     }).join('');
-    const cardTxt = Object.keys(SHIPS).map(id =>
-      '<span style="color:' + WEAPONS[SHIPS[id].weapon].color + ';margin:0 6px">' + SHIPS[id].name + '×' + (cards[id] || 0) + '</span>'
-    ).join('');
     return (
-      '<p style="text-align:center;color:#9db8d8;margin:2px 0 6px">玩家「' + game.pname + '」战机券 <b style="color:#ffe14a;font-size:16px">' + f.tickets + '</b> 张' +
-      '<span style="color:#5a6b7a"> · 再抽 ' + toPity + ' 抽保底高级</span></p>' +
-      '<div style="display:flex;gap:8px;justify-content:center;margin:0 0 8px;flex-wrap:wrap">' +
-      '<button class="btn" id="fleet-gacha" style="min-width:110px;padding:9px 20px;font-size:14px"' + (f.tickets > 0 ? '' : ' disabled') + '>抽 1 次（1券）</button>' +
-      '<button class="btn" id="fleet-redeem" style="min-width:160px;padding:9px 20px;font-size:13px"' + (Object.keys(cards).some(k => cards[k] > 0) ? '' : ' disabled') + '>兑换开局储备（耗1卡）</button>' +
-      '</div>' +
+      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">当前装备：<b style="color:#4aff8a">' + SHIPS[f.equipped].name + '</b> · 券 <b style="color:#ffe14a">' + f.tickets + '</b> 张</p>' +
       '<div class="ship-grid">' + rows + '</div>' +
-      '<p style="text-align:center;color:#5a6b7a;font-size:11px;margin:8px 0 0">抽到重复战机 = 得 1 张卡，可用卡升级（1~5级每级1张 / 6~9级每级2张 / 10级3张）</p>' +
-      '<p style="text-align:center;color:#5a6b7a;font-size:11px;margin:2px 0 0">持有卡：' + cardTxt + '</p>'
+      '<p style="text-align:center;color:#5a6b7a;font-size:11px;margin:8px 0 0">升级消耗：1~5级每级1张 / 6~9级每级2张 / 10级3张。抽卡在「抽卡」，卡/券/兑换在「背包」</p>'
     );
   }
   function fleetResultBox(title, color, sub) {
@@ -544,25 +492,6 @@
   function bindFleet() {
     const gm = game;
     const re = () => { openModal('战机', fleetContent()); bindFleet(); };
-    const gachaBtn = modalBody.querySelector('#fleet-gacha');
-    if (gachaBtn) gachaBtn.addEventListener('click', () => {
-      const r = gm.gacha();
-      if (!r) return;
-      const s = SHIPS[r.id];
-      const box = fleetResultBox(
-        (r.isNew ? '✦ 新战机「' + s.name + '」' : '获得 ' + s.name + ' 卡 ×1') + (r.isHigh ? ' ★稀有！' : ''),
-        r.isHigh ? '#ff7ad9' : '#ffe14a',
-        s.desc + '（' + WEAPONS[s.weapon].name + (r.isHigh ? '·专属' : '') + '）'
-      );
-      box.querySelector('#gacha-ok').onclick = () => { box.remove(); re(); };
-    });
-    const redeemBtn = modalBody.querySelector('#fleet-redeem');
-    if (redeemBtn) redeemBtn.addEventListener('click', () => {
-      const r = gm.redeemStarter();
-      if (!r) return;
-      const box = fleetResultBox('兑换成功', '#4aff8a', '本局开局 炸弹+1 / 护盾+1 / 生命+1（仅本局，选关开始后生效）');
-      box.querySelector('#gacha-ok').onclick = () => { box.remove(); re(); };
-    });
     modalBody.querySelectorAll('[data-act="eq"]').forEach(b => {
       b.addEventListener('click', () => {
         const id = b.closest('.ship-card').dataset.ship;
@@ -579,11 +508,86 @@
     });
   }
 
+  /* ---------- 抽卡独立界面（v13.1） ---------- */
+  function gachaContent() {
+    const f = game.fleet();
+    const toPity = Math.max(0, 10 - (f.pity || 0));
+    return (
+      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">战机券 <b style="color:#ffe14a;font-size:18px">' + f.tickets + '</b> 张 · 再抽 <b style="color:#7ac8ff">' + toPity + '</b> 抽保底高级</p>' +
+      '<div style="text-align:center;margin:0 0 10px"><button class="btn" id="gacha-go" style="min-width:180px;padding:12px 30px;font-size:16px;letter-spacing:3px"' + (f.tickets > 0 ? '' : ' disabled') + '>抽 1 次（1 券）</button></div>' +
+      '<h4 style="color:#ffe14a;margin:6px 0 4px">卡池概率</h4>' +
+      '<table class="gacha-table"><tr><th>战机</th><th>稀有度</th><th>概率</th></tr>' +
+      '<tr><td style="color:#cfe9ff">猎鹰</td><td>普通</td><td>26%</td></tr>' +
+      '<tr><td style="color:#cfe9ff">风暴</td><td>普通</td><td>27%</td></tr>' +
+      '<tr><td style="color:#cfe9ff">毒牙</td><td>普通</td><td>27%</td></tr>' +
+      '<tr><td style="color:#ff9ad9">幻影</td><td>稀有</td><td>9%</td></tr>' +
+      '<tr><td style="color:#ffd24a">雷霆</td><td>史诗</td><td>6%</td></tr>' +
+      '<tr><td style="color:#ff8ad4">暗夜</td><td>传说</td><td>5%</td></tr>' +
+      '</table>' +
+      '<p style="text-align:center;color:#5a6b7a;font-size:11px;margin:6px 0 0">抽到新战机即拥有；重复抽到得 1 张卡（存背包）。高级合计 20%，10 抽必出。</p>'
+    );
+  }
+  function bindGacha() {
+    const gm = game;
+    const b = modalBody.querySelector('#gacha-go');
+    if (!b) return;
+    b.addEventListener('click', () => {
+      const r = gm.gacha();
+      if (!r) return;
+      const s = SHIPS[r.id];
+      const box = fleetResultBox(
+        (r.isNew ? '✦ 新战机「' + s.name + '」' : '获得 ' + s.name + ' 卡 ×1') + (r.isHigh ? ' ★稀有！' : ''),
+        r.isHigh ? '#ff7ad9' : '#ffe14a',
+        s.desc + '（' + WEAPONS[s.weapon].name + (r.isHigh ? '·专属' : '') + '）'
+      );
+      box.querySelector('#gacha-ok').onclick = () => { box.remove(); openModal('抽卡', gachaContent()); bindGacha(); };
+    });
+  }
+
+  /* ---------- 背包界面（v13.1）：卡 / 券 / 兑换开局储备 ---------- */
+  function bagContent() {
+    const f = game.fleet();
+    const cards = f.cards || {};
+    const hasCard = Object.keys(cards).some(k => cards[k] > 0);
+    const cardRows = Object.keys(SHIPS).map(id => {
+      const s = SHIPS[id];
+      const n = cards[id] || 0;
+      return (
+        '<div class="bag-row' + (n > 0 ? '' : ' bag-empty') + '">' +
+        '<span class="bag-name" style="color:' + WEAPONS[s.weapon].color + '">' + s.name + ' 卡</span>' +
+        '<span class="bag-n">×' + n + '</span>' +
+        '</div>'
+      );
+    }).join('');
+    return (
+      '<p style="text-align:center;color:#9db8d8;margin:2px 0 8px">战机券 <b style="color:#ffe14a;font-size:18px">' + f.tickets + '</b> 张 · 保底计数 <b style="color:#7ac8ff">' + (f.pity || 0) + '</b>/10</p>' +
+      '<div style="text-align:center;margin:0 0 8px"><button class="btn" id="bag-redeem" style="min-width:210px;padding:10px 24px;font-size:14px"' + (hasCard ? '' : ' disabled') + '>兑换开局储备（消耗 1 张卡）</button></div>' +
+      '<p style="text-align:center;color:#5a6b7a;font-size:11px;margin:0 0 6px">兑换后本局开局 炸弹+1 / 护盾+1 / 生命+1（仅本局）</p>' +
+      '<h4 style="color:#ffe14a;margin:4px 0 4px">持有卡</h4>' +
+      '<div class="bag-list">' + cardRows + '</div>'
+    );
+  }
+  function bindBag() {
+    const gm = game;
+    const re = () => { openModal('背包', bagContent()); bindBag(); };
+    const b = modalBody.querySelector('#bag-redeem');
+    if (b) b.addEventListener('click', () => {
+      const r = gm.redeemStarter();
+      if (!r) return;
+      const box = fleetResultBox('兑换成功', '#4aff8a', '本局开局 炸弹+1 / 护盾+1 / 生命+1（仅本局，选关开始后生效）');
+      box.querySelector('#gacha-ok').onclick = () => { box.remove(); re(); };
+    });
+  }
+
   $('btn-keys').addEventListener('click', () => openModal('键位说明', keysContent()));
   $('btn-howto').addEventListener('click', () => openModal('玩法介绍', howtoContent()));
   $('btn-stage').addEventListener('click', () => { selStage = 1; openModal('选择关卡', stageContent()); bindStageGrid(); });
-  $('btn-ach').addEventListener('click', () => openModal('成就', achContent()));
+  // v13.1 成就入口并入主界面「★ 成就」数字处（点击进入）
+  const achEntry = $('btn-ach');
+  if (achEntry) achEntry.addEventListener('click', () => openModal('成就', achContent()));
   $('btn-fleet').addEventListener('click', () => { openModal('战机', fleetContent()); bindFleet(); });
+  $('btn-gacha').addEventListener('click', () => { openModal('抽卡', gachaContent()); bindGacha(); });
+  $('btn-bag').addEventListener('click', () => { openModal('背包', bagContent()); bindBag(); });
 
   /* ---------- 服务器保活 + 关页自毁（v12.0） ---------- */
   // 仅 http(s) 运行模式启用（file:// 直开无服务器，跳过避免 CORS 报错）；

@@ -89,7 +89,8 @@ canvas { display: block; width: 100%; height: 100%; background: #04060f; }
   text-shadow: 0 0 10px rgba(110, 243, 255, .7);
   transition: color .15s;
 }
-.title-ach { font-size: 12px; color: #9db8d8; letter-spacing: 2px; opacity: .85; }
+.title-ach { font-size: 12px; color: #9db8d8; letter-spacing: 2px; opacity: .85; cursor: pointer; padding: 2px 10px; border-radius: 6px; transition: background .15s, color .15s; }
+.title-ach:hover { color: #fff; opacity: 1; background: rgba(80, 200, 255, .14); }
 .title-ach span { color: var(--amber); }
 .title-stats { font-size: 11px; color: #6b7f9a; letter-spacing: 1px; opacity: .8; }
 
@@ -334,7 +335,11 @@ canvas { display: block; width: 100%; height: 100%; background: #04060f; }
   box-shadow: 0 0 30px rgba(80, 200, 255, .25);
 }
 .modal-title { font-size: 20px; font-weight: 900; letter-spacing: 4px; color: #fff; text-align: center; text-shadow: 0 0 12px rgba(110,243,255,.6); }
-.modal-body { font-size: 13px; line-height: 1.9; overflow-y: auto; max-height: 52vh; color: #cfe9ff; }
+.modal-body { font-size: 13px; line-height: 1.9; overflow-y: auto; max-height: 52vh; color: #cfe9ff; scrollbar-width: thin; scrollbar-color: #2c4a6e transparent; }
+.modal-body::-webkit-scrollbar { width: 8px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: #2c4a6e; border-radius: 4px; }
+.modal-body::-webkit-scrollbar-thumb:hover { background: #3a5a85; }
 .modal-body h4 { margin: 8px 0 2px; color: var(--cyan); font-size: 14px; letter-spacing: 1px; }
 .modal-body p { margin: 2px 0; }
 .modal-body table { border-collapse: collapse; width: 100%; font-size: 12px; }
@@ -347,18 +352,26 @@ canvas { display: block; width: 100%; height: 100%; background: #04060f; }
   padding: 10px 0; font-size: 14px; letter-spacing: 1px;
   color: #9db8d8; background: rgba(10, 20, 40, .7);
   border: 1px solid #3a5a85; border-radius: 6px; cursor: pointer;
+  text-align: center;
 }
 .stage-cell:hover { color: #fff; border-color: var(--cyan); }
 .stage-cell.active { color: #041018; font-weight: bold; background: linear-gradient(180deg, #9ff7ff, #23a7e0); border-color: transparent; }
 .stage-cell.boss { border-color: rgba(255, 160, 160, .5); }
-.stage-cell.boss::after { content: '·Boss'; display: block; font-size: 9px; opacity: .7; letter-spacing: 0; }
-/* v13.0 进度 / 续关点 / 跳关 */
-.stage-cell.done { border-color: rgba(80, 200, 140, .6); color: #9ff0c8; }
+.stage-cell.boss::after { content: 'Boss'; display: block; font-size: 9px; opacity: .7; letter-spacing: 0; }
+/* v13.0 进度 / 继续点 / 未通（v13.1 已通关变色加强、去掉「跳过」小字） */
+.stage-cell.done { background: rgba(22, 92, 62, .5); border-color: #4aff8a; color: #b5ffd8; font-weight: bold; }
+.stage-cell.done::after { content: '✓'; display: block; font-size: 10px; color: #4aff8a; opacity: .9; letter-spacing: 0; }
 .stage-cell.done i { font-style: normal; font-size: 11px; color: #4aff8a; }
 .stage-cell.resume { box-shadow: 0 0 0 2px rgba(122, 200, 255, .9); border-color: #7ac8ff; }
 .stage-cell.skip { opacity: .55; }
-.stage-cell.skip::before { content: '跳过'; display: block; font-size: 9px; opacity: .75; letter-spacing: 0; }
-.stage-cell.boss.skip::before { content: '跳过'; }
+
+/* 抽卡 / 背包（v13.1） */
+.gacha-table th, .gacha-table td { text-align: center; }
+.bag-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.bag-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: rgba(10, 20, 40, .7); border: 1px solid #2c4a6e; border-radius: 8px; }
+.bag-row.bag-empty { opacity: .45; }
+.bag-name { font-size: 13px; letter-spacing: 1px; }
+.bag-n { font-size: 15px; color: var(--amber); font-weight: bold; }
 
 /* 战机系统（v13.0） */
 .ship-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -405,7 +418,7 @@ canvas { display: block; width: 100%; height: 100%; background: #04060f; }
   .logo-sub { letter-spacing: 6px; }
   .menu-hint { font-size: 12px; }
   .feature-row { gap: 8px; }
-  .btn-mini { min-width: 74px; padding: 10px 8px; font-size: 12px; }
+  .btn-mini { min-width: 92px; padding: 10px 6px; font-size: 12px; }
   .modal-box { width: 94%; padding: 16px 12px; }
   .modal-body { font-size: 12px; max-height: 46vh; }
   .stage-cell { padding: 12px 0; }

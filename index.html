@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>雷霆战鹰 · Thunder Hawk</title>
-<link rel="stylesheet" href="src/css/style.css?v=1310">
+<link rel="stylesheet" href="src/css/style.css?v=1311">
 </head>
 <body>
 <div id="stage">
@@ -36,12 +36,6 @@
       <div class="logo-sub">THUNDER HAWK</div>
       <div class="logo-main">雷 鹰 战 机</div>
     </div>
-    <div class="menu-hint">
-      <p>移动：鼠标 / WASD / 方向键 / 触摸拖动</p>
-      <p>射击：自动 &nbsp;|&nbsp; 炸弹：空格 / 双击</p>
-      <p>武器道具：W 散弹 / M 追踪导弹 / V 火神炮 / O 僚机 / G 磁力 / C 暴击</p>
-      <p>必杀：E / 长按屏幕（能量满时）&nbsp;|&nbsp; 暂停：P、Esc 或 ✕</p>
-    </div>
     <div class="diff-row">
       <button class="btn-diff" data-diff="easy">轻松</button>
       <button class="btn-diff active" data-diff="normal">标准</button>
@@ -49,22 +43,17 @@
     </div>
     <button id="btn-start" class="btn">开始出击</button>
     <div class="feature-row">
-      <button class="btn-mini" id="btn-keys">键位说明</button>
-      <button class="btn-mini" id="btn-howto">玩法介绍</button>
-      <button class="btn-mini" id="btn-stage">选关</button>
-      <button class="btn-mini" id="btn-ach">成就</button>
       <button class="btn-mini" id="btn-fleet">战机</button>
+      <button class="btn-mini" id="btn-gacha">抽卡</button>
+      <button class="btn-mini" id="btn-bag">背包</button>
+      <button class="btn-mini" id="btn-stage">选关</button>
+      <button class="btn-mini" id="btn-keys">键位</button>
+      <button class="btn-mini" id="btn-howto">玩法</button>
     </div>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>
-    <div class="title-ach">★ 成就 <span id="ach-count">0</span>/14</div>
-    <div class="profile-row">
-      <input id="name-input" maxlength="12" placeholder="玩家名（一个名字=一个玩家）" autocomplete="off">
-      <button id="btn-name" class="btn btn-ghost">确定</button>
-    </div>
-    <div id="player-list" class="player-list"></div>
-    <div class="title-player">玩家：<b id="cur-player">玩家1</b></div>
+    <div class="title-ach" id="btn-ach" title="点击查看成就">★ 成就 <span id="ach-count">0</span>/14</div>
     <div class="title-stats" id="title-stats"></div>
-    <div class="version-tag">v13.0</div>
+    <div class="version-tag">v13.1</div>
   </div>
 
   <div id="screen-pause" class="screen hidden">
@@ -103,10 +92,10 @@
     </div>
   </div>
 </div>
-<script src="src/js/audio.js?v=1310"></script>
-<script src="src/js/profile.js?v=1310"></script>
-<script src="src/js/entities.js?v=1310"></script>
-<script src="src/js/game.js?v=1310"></script>
-<script src="src/js/main.js?v=1310"></script>
+<script src="src/js/audio.js?v=1311"></script>
+<script src="src/js/profile.js?v=1311"></script>
+<script src="src/js/entities.js?v=1311"></script>
+<script src="src/js/game.js?v=1311"></script>
+<script src="src/js/main.js?v=1311"></script>
 </body>
 </html>
