@@ -48,6 +48,12 @@
       <button class="btn-diff" data-diff="hard">炼狱</button>
     </div>
     <button id="btn-start" class="btn">开始出击</button>
+    <div class="feature-row">
+      <button class="btn-mini" id="btn-keys">键位说明</button>
+      <button class="btn-mini" id="btn-howto">玩法介绍</button>
+      <button class="btn-mini" id="btn-stage">选关</button>
+      <button class="btn-mini" id="btn-ach">成就</button>
+    </div>
     <div class="title-best">最高纪录 <span id="best-title">0</span></div>
     <div class="title-ach">★ 成就 <span id="ach-count">0</span>/8</div>
     <div class="profile-row">
@@ -85,6 +91,15 @@
     <button id="btn-retry" class="btn">再次出击</button>
     <button id="btn-menu" class="btn btn-ghost">返回主菜单</button>
     <p class="over-hint">按 Enter 快速再战</p>
+  </div>
+
+  <!-- 通用信息弹窗（v12.1：键位说明 / 玩法 / 选关 / 成就） -->
+  <div id="modal" class="screen modal hidden">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-body" id="modal-body"></div>
+      <button id="modal-close" class="btn btn-ghost">返回</button>
+    </div>
   </div>
 </div>
 <script src="src/js/audio.js?v=1211"></script>
