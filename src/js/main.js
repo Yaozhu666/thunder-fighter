@@ -277,6 +277,12 @@
 
   /* ---------- 玩家档案 UI（v12.0） ---------- */
   const nameInput = $('name-input');
+  /* 同步标题界面难度按钮高亮到当前玩家的已记忆难度（切人后 refreshProfile 不更新按钮态） */
+  function syncDiffButtons() {
+    document.querySelectorAll('.btn-diff').forEach(x => x.classList.remove('active'));
+    const b = document.querySelector(`.btn-diff[data-diff="${game.diffKey}"]`);
+    if (b) b.classList.add('active');
+  }
   function applyName() {
     const n = Players.switchTo(nameInput.value);
     if (!n) return;
@@ -284,6 +290,7 @@
     game.pname = n;
     game.refreshProfile();
     renderPlayerList();
+    syncDiffButtons();
   }
   function renderPlayerList() {
     const wrap = $('player-list');
@@ -296,6 +303,7 @@
         game.pname = n;
         game.refreshProfile();
         renderPlayerList();
+        syncDiffButtons();
       });
       wrap.appendChild(b);
     }
@@ -308,10 +316,17 @@
   renderPlayerList();
 
   /* ---------- 服务器保活 + 关页自毁（v12.0） ---------- */
-  try { fetch('/ping').catch(() => {}); } catch (e) {}
-  window.addEventListener('pagehide', () => {
-    try { navigator.sendBeacon('/shutdown', '1'); } catch (e) {}
-  });
+  // 仅 http(s) 运行模式启用（file:// 直开无服务器，跳过避免 CORS 报错）
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    // 页面常驻期间定时保活：间隔(2s) < 服务端宽限(4s)，刷新/关页竞态下旧页面的 /shutdown
+    // beacon 即使晚于新页面的 /ping 到达，也会被下一次定时 /ping 取消，避免刷新误杀
+    const ping = () => { try { fetch('/ping').catch(() => {}); } catch (e) {} };
+    ping();
+    setInterval(ping, 2000);
+    window.addEventListener('pagehide', () => {
+      try { navigator.sendBeacon('/shutdown', '1'); } catch (e) {}
+    });
+  }
 
   /* ---------- 主循环 ---------- */
   let lastT = performance.now();

@@ -353,13 +353,14 @@ class Enemy {
       this.vx = x < W / 2 ? rand(30, 70) : -rand(30, 70);
     } else if (type === 'kamika') {
       this.vy = 60;
+      this.close = false;            // 近身撞击预警（v12.0.1）
     } else if (type === 'elite') {
       this.vy = 95;                                 // 进场下压
       this.vx = rand(45, 75) * (Math.random() < 0.5 ? -1 : 1);
       this.stopY = rand(110, 200);                  // 悬停高度
       this.eliteAlt = false;                        // 弹幕交替
     } else if (type === 'meteor') {
-      this.vy = rand(260, 380);
+      this.vy = rand(200, 280);      // v12.0.1：260-380 → 200-280，陨石雨不再不可躲
       this.vx = rand(-40, 40);
       this.rot = rand(0, 6);
     } else { // heavy
@@ -380,11 +381,12 @@ class Enemy {
       this.x += this.vx * dt;
       if (this.x < 20 || this.x > W - 20) this.vx *= -1;
     } else if (this.type === 'kamika') {
-      // 追踪玩家，越追越快（v2.1 削弱：初速 200→140，加速 260→110/s，上限 640→400）
+      // 追踪玩家，逐渐加速（v12.0.1：初速100 加速75/s 上限320，低于玩家340可甩开；近身预警见 draw）
       const p = game.player;
       const dx = p.x - this.x, dy = p.y - this.y;
       const d = Math.hypot(dx, dy) || 1;
-      const sp = Math.min(400, 140 + this.t * 110);
+      const sp = Math.min(320, 100 + this.t * 75);
+      this.close = d < 170;          // 撞击预警距离
       this.x += (dx / d) * sp * dt;
       this.y += (dy / d) * sp * dt;
       if (Math.random() < dt * 8) game.spawnParticles(this.x, this.y, 1, '#ff3c9e', 1.2, 0.3);
@@ -496,8 +498,10 @@ class Enemy {
       g.moveTo(0, 16);
       g.lineTo(-8, -4); g.lineTo(-3, -12); g.lineTo(3, -12); g.lineTo(8, -4);
       g.closePath(); g.fill();
-      g.fillStyle = '#fff';
-      g.beginPath(); g.arc(0, 2, 3 + Math.sin(this.t * 30) * 1.2, 0, Math.PI * 2); g.fill();
+      // 核心：接近玩家（<170px）转红高频闪烁 = 即将撞击预警（v12.0.1）
+      g.fillStyle = this.close ? '#ff2020' : '#fff';
+      const pulse = this.close ? (1.6 + Math.sin(this.t * 42) * 1.6) : (3 + Math.sin(this.t * 30) * 1.2);
+      g.beginPath(); g.arc(0, 2, pulse, 0, Math.PI * 2); g.fill();
     } else if (this.body === 'meteor') {
       // v6.0 陨石：不规则岩块
       g.rotate(this.rot);

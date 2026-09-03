@@ -37,3 +37,10 @@ const step = (frames) => tab.playwright.evaluate(
 - 关卡/波次：`game.stage = 7; game.waveInStage = 2; game.nextWave();`（注意 waveInStage>2 会被轮进下一关）
 - 事件波分支：临时换 `Math.random` 固定种子（用后会验恢复）。
 - 存档隔离断言：读 `localStorage` 键值（玩家档案见 js/profile.js：`th_best_名字` 等）。
+- 玩家档案迁移构造：清 `th_players/th_current` 后注入旧匿名键（`th_best/th_ach/th_stats`）再刷新触发 ensureDefault。
+  注意档案键名带 `encodeURIComponent(名字)`（如 `th_best_%E7%8E%A9%E5%AE%B61`），直读"玩家1"会取空。
+- 关页杀服验证：**不要用 `bu.close_tab()`**（CDP 销毁 target 不触发 pagehide，beacon 不发出，无法验证）；
+  用 `bu.js("window.location.href='about:blank'")` 走真实 pagehide → sendBeacon 路径，再 `netstat` 断言端口释放。
+- 刷新竞态复现：pagehide 的 sendBeacon 可能晚于 reload 后新页面的 /ping 到达（实测晚 13~18ms），
+  竞态下服务器 4s 后被误杀；页面定时保活（setInterval /ping，间隔 < server GRACE 4s）可消除——验证
+  刷新保活应 reload 后等 >4s 再 curl /ping。
